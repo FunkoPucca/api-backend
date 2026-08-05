@@ -378,42 +378,58 @@ app.delete('/itens/:id', autenticar, async (req, res) => {
 /* ─────────────── AI GENERATION ─────────────── */
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+const GEMINI_MODELS = (process.env.GEMINI_MODELS || 'gemini-3.5-flash,gemini-3.5-flash-lite,gemini-3.6-flash')
+  .split(',').map(s => s.trim()).filter(Boolean);
 
 async function geminiCall(parts, system) {
   if (!GEMINI_API_KEY) throw new Error('Chave GEMINI_API_KEY não configurada no .env');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-  const payload = {
-    contents: [{ role: 'user', parts }],
-    generationConfig: { temperature: 0.8 }
-  };
-  if (system) payload.systemInstruction = { parts: [{ text: system }] };
+  let ultimoErro = null;
+  // Tenta cada modelo habilitado; em cota excedida (429) ou modelo
+  // indisponível (404), parte para o próximo automaticamente.
+  for (const modelo of GEMINI_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${GEMINI_API_KEY}`;
+    const payload = {
+      contents: [{ role: 'user', parts }],
+      generationConfig: { temperature: 0.8 },
+    };
+    if (system) payload.systemInstruction = { parts: [{ text: system }] };
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
-  let response;
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-  } catch (e) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      clearTimeout(timeout);
+      ultimoErro = new Error('Falha ao chamar Gemini (' + modelo + '): ' + (e?.message || e));
+      continue;
+    }
     clearTimeout(timeout);
-    throw new Error('Falha ao chamar Gemini: ' + (e?.message || e));
-  }
-  clearTimeout(timeout);
 
-  if (!response.ok) {
-    const txt = await response.text().catch(() => '');
-    throw new Error(`Gemini retornou ${response.status}: ${txt.slice(0, 200)}`);
+    if (response.status === 429) {
+      ultimoErro = new Error('Gemini ' + modelo + ' sem cota (429)');
+      continue;
+    }
+    if (!response.ok) {
+      const txt = await response.text().catch(() => '');
+      if (response.status === 404 || response.status === 400) {
+        ultimoErro = new Error(`Gemini ${modelo} retornou ${response.status}: ${txt.slice(0, 120)}`);
+        continue;
+      }
+      throw new Error(`Gemini retornou ${response.status}: ${txt.slice(0, 200)}`);
+    }
+    const data = await response.json();
+    const text = (data.candidates?.[0]?.content?.parts || [])
+      .map(p => p.text || '').join(' ').trim();
+    if (!text) { ultimoErro = new Error('Gemini ' + modelo + ' não retornou texto'); continue; }
+    return text;
   }
-  const data = await response.json();
-  const text = (data.candidates?.[0]?.content?.parts || [])
-    .map(p => p.text || '').join(' ').trim();
-  if (!text) throw new Error('Gemini não retornou texto');
-  return text;
+  throw new Error('Gemini sem disponibilidade: ' + (ultimoErro?.message || 'todos os modelos falharam'));
 }
 
 async function geminiDescreveFoto(dataUri, legenda) {
