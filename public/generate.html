@@ -114,6 +114,18 @@
           <div id="box-result" class="box-state box-result" style="display:none">
             <img id="result-img" src="" alt="Pelúcia gerada" />
             <div id="result-desc" class="result-desc" style="display:none"></div>
+
+            <!-- Negociação de valor -->
+            <div class="negotiate-box" id="negotiate-box">
+              <div class="neg-label">Essa é a sua pelúcia! 💝 Quanto quer pagar por ela?</div>
+              <div class="negotiate-row">
+                <span class="neg-currency">R$</span>
+                <input type="number" id="neg-value" min="1" step="0.01" placeholder="0,00" aria-label="Valor da proposta" />
+                <button type="button" class="btn-primary" id="neg-btn">🤝 Negociar</button>
+              </div>
+              <p id="neg-result" class="neg-result" style="display:none"></p>
+              <p class="neg-hint">A loja tem um valor mínimo em mente. Se a proposta for recusada, tente um valor mais alto!</p>
+            </div>
           </div>
         </div>
 
@@ -296,6 +308,8 @@
 
         try {
           const data = await runGenerate(body);
+          lastResult = { idGeracao: data.idGeracao, nome: data.nomeSugerido };
+          resetNegotiate();
           document.getElementById('result-img').src = data.url;
           const descEl = document.getElementById('result-desc');
           if (data.descricao) {
@@ -312,6 +326,74 @@
           showToast('Erro: ' + e.message + '. Tente novamente.');
           stage = 'empty';
           render();
+        }
+      });
+
+      /* ─────────── Negociação de valor ─────────── */
+      const negBtn = document.getElementById('neg-btn');
+      const negValue = document.getElementById('neg-value');
+      const negResult = document.getElementById('neg-result');
+      let lastResult = null;
+
+      function resetNegotiate() {
+        negValue.value = '';
+        negResult.style.display = 'none';
+        negResult.className = 'neg-result';
+        negBtn.disabled = false;
+        negBtn.textContent = '🤝 Negociar';
+      }
+
+      function setNegResult(msg, ok) {
+        negResult.textContent = msg;
+        negResult.className = 'neg-result ' + (ok ? 'neg-ok' : 'neg-fail');
+        negResult.style.display = 'block';
+      }
+
+      negBtn.addEventListener('click', async () => {
+        if (!lastResult) return;
+        if (!localStorage.getItem('fluffy_token')) {
+          setNegResult('Faça <a href="login.html">login</a> para negociar sua pelúcia.', false);
+          return;
+        }
+        const valor = Number(negValue.value.replace(',', '.'));
+        if (!valor || valor <= 0) {
+          setNegResult('Digite um valor para negociar.', false);
+          return;
+        }
+
+        negBtn.disabled = true;
+        negBtn.textContent = 'Negociando...';
+        setNegResult('A lojinha está analisando sua proposta...', false);
+
+        try {
+          const pedidoId = parseInt(localStorage.getItem('fluffy_order_id') || '0', 10) || undefined;
+          const res = await fetch('/generate/negociar', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + localStorage.getItem('fluffy_token'),
+            },
+            body: JSON.stringify({ idGeracao: lastResult.idGeracao, valor, nome: lastResult.nome, pedidoId }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Erro na negociação');
+
+          if (data.aprovado) {
+            if (data.pedidoId) localStorage.setItem('fluffy_order_id', String(data.pedidoId));
+            setNegResult(data.mensagem, true);
+            negBtn.disabled = true;
+            negBtn.textContent = '✅ Adicionado ao carrinho!';
+            showToast('Pelúcia adicionada ao carrinho! 🎉');
+            setTimeout(() => { window.location.href = 'carrinho.html'; }, 1600);
+          } else {
+            setNegResult(data.mensagem, false);
+            negBtn.disabled = false;
+            negBtn.textContent = '🤝 Tentar outro valor';
+          }
+        } catch (e) {
+          setNegResult('Erro: ' + e.message, false);
+          negBtn.disabled = false;
+          negBtn.textContent = '🤝 Negociar';
         }
       });
 

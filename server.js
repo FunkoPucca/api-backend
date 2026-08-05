@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('./db');
@@ -15,6 +17,7 @@ const JWT_EXPIRATION_MS = parseInt(process.env.JWT_EXPIRATION_MS || '3600000');
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 async function initDB() {
   const client = await pool.connect();
@@ -417,31 +420,51 @@ async function geminiDescreveFoto(dataUri, legenda) {
   const mime = dataUri.split(';')[0].replace('data:', '') || 'image/jpeg';
   const base64 = dataUri.includes(',') ? dataUri.split(',')[1] : dataUri;
   const parts = [
-    { text: 'Descreva em detalhes (português) a imagem a seguir: cores, objeto, formato, expressão, fundo e qualquer detalhe que dê para transformar em uma pelúcia. Seja objetivo e descritivo.' },
+    { text: 'Descreva em detalhes (português) a imagem a seguir. Identifique o personagem/animal/objeto PRINCIPAL e destaque tudo que o torna ÚNICO: espécie, cores exatas, formato, textura, acessórios, expressão e fundo. Esses detalhes serão usados para criar uma pelúcia personalizada e fofa, então foque nas características visuais marcantes. Seja objetivo e descritivo.' },
     { inline_data: { mime_type: mime, data: base64 } },
   ];
   if (legenda && legenda.trim()) {
     parts.push({ text: 'Observe também os pedidos adicionais do usuário: ' + legenda.trim() });
   }
-  return geminiCall(parts, 'Você é um descritor de imagens para uma loja de pelúcias personalizadas.');
+  return geminiCall(parts, 'Você é um descritor de imagens para uma loja de pelúcias personalizadas. Você extrai as características mais marcantes e únicas de cada imagem.');
 }
 
-async function geminiCriaPrompt(descricaoFoto, legenda) {
+async function geminiCriaPrompt(conceito, legenda) {
   const texto = [
-    'Com base na descrição da foto de referência, crie UM ÚNICO prompt curto (máx. 60 palavras, em português)',
-    'descrevendo uma pelúcia fofa que represente essa referência. Inclua: animal/forma, cor, acessórios e expressão.',
-    'Não escreva nada além do prompt.',
+    'Com base na ideia abaixo, crie UM ÚNICO prompt curto (máx. 80 palavras, em português) descrevendo UMA PELÚCIA FOFA que represente FIELMENTE essa ideia.',
+    'REGRAS:',
+    '- Preserve TODOS os detalhes específicos da ideia: espécie/animal, cores exatas, formato, acessórios e expressão, para que cada pelúcia seja ÚNICA e parecida com a referência.',
+    '- NUNCA generalize para um ursinho genérico. Se a ideia tem algo específico (ex: raposa laranja, sereia roxa, capivara relaxando), a pelúcia DEVE ser desse algo específico.',
+    '- A pelúcia é um brinquedo fofo e infantil: olhos grandes, bochechas, expressão adorável e abraçável.',
+    '- PROIBIDO descrever humanos reais, pessoas, corpos, pele, roupas de humano, nudez ou sexualização.',
+    '- Se a ideia for uma pessoa, vire-a em um animal de pelúcia fofo inspirado nela, mantendo as características marcantes (cabelo vira juba/orelhas, roupa vira laço etc).',
+    '- Não escreva nada além do prompt.',
     '',
-    'Descrição da foto:',
-    descricaoFoto,
+    'Ideia:',
+    conceito,
   ];
   if (legenda && legenda.trim()) texto.push('Desejos do usuário: ' + legenda.trim());
-  return geminiCall([{ text: texto.join('\n') }], 'Você é um especialista em criar prompts de pelúcias fofas.');
+  return geminiCall([{ text: texto.join('\n') }],
+    'Você é um especialista em criar prompts de pelúcias fofas para crianças. Você SEMPRE converte qualquer ideia em um brinquedo de pelúcia fofo, kawaii e infantil, mantendo a originalidade e os detalhes específicos da ideia. Você NUNCA descreve humanos, pessoas ou corpos.');
 }
 
 async function geraImagemPollinations(prompt) {
-  const baseStyle = 'ultra cute teddy bear plush toy, soft fluffy fur, adorable big shiny eyes, small rounded ears, chubby round body, warm cozy atmosphere, high quality, detailed texture, studio lighting';
-  const finalPrompt = prompt ? `${prompt}, ${baseStyle}` : baseStyle;
+  // A aparência da pelúcia é guiada PELO PROMPT GERADO PELO GEMINI (específico).
+  // Aqui só garantimos que é uma pelúcia (sem humanos) e variamos o "estilo"
+  // a cada geração para nunca saírem todas iguais.
+  const conceito = (prompt || '').trim();
+  const vibes = [
+    'kawaii chibi style',
+    'squishy and huggable style',
+    'fluffy and adorable style',
+    'round and cuddly style',
+    'pastel soft kawaii style',
+  ];
+  const vibe = vibes[Math.floor(Math.random() * vibes.length)];
+  const guard = `super cute soft plush stuffed toy, ${vibe}, fluffy plush fabric, children's plush toy, studio product photo, high quality. STRICTLY a plush toy: no real humans, no people, no body, no skin, no nude.`;
+  const finalPrompt = conceito
+    ? `${conceito}. ${guard}`
+    : `cute teddy bear plush toy. ${guard}`;
   const seed = Math.floor(Math.random() * 100000);
   const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?model=flux&width=1024&height=1024&seed=${seed}`;
 
@@ -461,41 +484,144 @@ async function geraImagemPollinations(prompt) {
   return {
     url: `data:image/jpeg;base64,${buffer.toString('base64')}`,
     tamanho: buffer.length,
+    buffer,
   };
+}
+
+function nomeDePrompt(texto) {
+  let n = (texto || '').replace(/\s+/g, ' ').trim();
+  if (n.length > 60) n = n.slice(0, 60).replace(/\s+\S*$/, '');
+  return n ? n.charAt(0).toUpperCase() + n.slice(1) : 'Pelúcia Personalizada';
+}
+
+function formatBRL(v) {
+  return 'R$' + Number(v).toFixed(2).replace('.', ',');
+}
+
+// Sorteia o "preço secreto" da loja para cada pelúcia gerada (R$ 80 a R$ 200).
+// É determinístico por idGeracao: a mesma pelúcia mantém o mesmo alvo entre tentativas.
+function alvoNegociacao(idGeracao) {
+  let h = 0;
+  for (let i = 0; i < idGeracao.length; i++) {
+    h = (h * 31 + idGeracao.charCodeAt(i)) | 0;
+  }
+  return 80 + (Math.abs(h) % 121);
 }
 
 app.post('/generate', async (req, res) => {
   try {
     const { modo, prompt, imagem, legenda } = req.body;
 
+    let descricaoFoto = null;
+    let promptFinal;
+    let nomeSugerido;
+
     if (modo === 'imagem' || imagem) {
       if (!imagem) return res.status(400).json({ error: 'Envie uma imagem para o fluxo personalizado' });
 
       // Etapa 1 — Visão (Gemini): descreve a foto enviada
-      const descricaoFoto = await geminiDescreveFoto(imagem, legenda);
+      descricaoFoto = await geminiDescreveFoto(imagem, legenda);
 
       // Etapa 2 — Texto (Gemini): transforma a descrição em prompt de pelúcia
-      const promptFinal = await geminiCriaPrompt(descricaoFoto, legenda);
+      promptFinal = await geminiCriaPrompt(descricaoFoto, legenda);
 
-      // Etapa 3 — Imagem (Pollinations): gera o ursinho
-      const imagemResult = await geraImagemPollinations(promptFinal);
-
-      return res.json({
-        url: imagemResult.url,
-        tamanho: imagemResult.tamanho,
-        descricao: descricaoFoto,
-        prompt: promptFinal,
-      });
+      nomeSugerido = nomeDePrompt(legenda || descricaoFoto);
+    } else {
+      // Fluxo por texto: o Gemini converte a ideia do usuário em prompt de pelúcia
+      // (sanitiza qualquer conceito, garantindo sempre um brinquedo fofo infantil)
+      if (!prompt || !prompt.trim()) return res.status(400).json({ error: 'Digite uma descrição para sua pelúcia' });
+      promptFinal = await geminiCriaPrompt(prompt.trim());
+      nomeSugerido = nomeDePrompt(prompt);
     }
 
-    // Fluxo por texto: usa a descrição do usuário direto na geração
-    if (!prompt || !prompt.trim()) return res.status(400).json({ error: 'Digite uma descrição para sua pelúcia' });
-    const promptFinal = prompt.trim();
+    // Etapa 3 — Imagem (Pollinations): gera a pelúcia
     const imagemResult = await geraImagemPollinations(promptFinal);
-    res.json({ url: imagemResult.url, tamanho: imagemResult.tamanho, prompt: promptFinal });
+
+    // Salva a imagem em disco para poder ir ao carrinho se a negociação for aceita
+    const idGeracao = crypto.randomUUID();
+    const dirGeradas = path.join(__dirname, 'uploads', 'geradas');
+    fs.mkdirSync(dirGeradas, { recursive: true });
+    fs.writeFileSync(path.join(dirGeradas, `${idGeracao}.jpg`), imagemResult.buffer);
+
+    res.json({
+      url: imagemResult.url,
+      tamanho: imagemResult.tamanho,
+      descricao: descricaoFoto,
+      prompt: promptFinal,
+      idGeracao,
+      nomeSugerido,
+    });
   } catch (error) {
     console.error('Erro generate:', error?.message || error);
     res.status(500).json({ error: error?.message || 'Erro ao gerar imagem' });
+  }
+});
+
+/* Negociação de valor da pelúcia gerada:
+   a loja sorteia um preço secreto entre R$ 80 e R$ 200.
+   Proposta >= alvo → aceita e vai pro carrinho.
+   Proposta < alvo  → recusada, pede para subir o valor. */
+app.post('/generate/negociar', autenticar, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { idGeracao, valor, nome, pedidoId } = req.body;
+    if (!idGeracao) return res.status(400).json({ error: 'idGeracao obrigatório' });
+    const v = Number(valor);
+    if (!v || v <= 0) return res.status(400).json({ error: 'Informe um valor válido' });
+
+    const arquivo = path.join(__dirname, 'uploads', 'geradas', `${idGeracao}.jpg`);
+    if (!fs.existsSync(arquivo)) return res.status(404).json({ error: 'Imagem gerada não encontrada. Gere novamente.' });
+
+    const alvo = alvoNegociacao(idGeracao);
+    if (v < alvo) {
+      return res.json({
+        aprovado: false,
+        mensagem: `A lojinha recusou sua proposta de ${formatBRL(v)}. Ela está pedindo mais... tente negociar com um valor mais alto! 💔`,
+      });
+    }
+
+    await client.query('BEGIN');
+
+    // 1) Cria o produto da pelúcia personalizada com o valor aceito
+    const imagemUrl = `/uploads/geradas/${idGeracao}.jpg`;
+    const nomeProduto = (nome && nome.trim()) ? nome.trim().slice(0, 150) : 'Pelúcia Personalizada';
+    const prod = await client.query(
+      'INSERT INTO produtos (nome,preco,quantidade_estoque,descricao,status,imagem,categoria) VALUES ($1,$2,1,$3,true,$4,$5) RETURNING *',
+      [nomeProduto, v, 'Pelúcia exclusiva criada por IA na Fluffy Dreams', imagemUrl, 'Personalizada']
+    );
+
+    // 2) Adiciona ao carrinho (pedido ABERTO do usuário, criando se preciso)
+    let idPedido = Number(pedidoId) || null;
+    if (idPedido) {
+      const p = await client.query('SELECT id,id_usuario,status FROM pedidos WHERE id=$1 FOR UPDATE', [idPedido]);
+      if (p.rows.length === 0 || p.rows[0].id_usuario !== req.usuarioId || p.rows[0].status !== 'ABERTO') idPedido = null;
+    }
+    if (!idPedido) {
+      const aberto = await client.query("SELECT id FROM pedidos WHERE id_usuario=$1 AND status='ABERTO' ORDER BY data_pedido DESC LIMIT 1", [req.usuarioId]);
+      idPedido = aberto.rows.length ? aberto.rows[0].id : null;
+      if (!idPedido) {
+        const novo = await client.query('INSERT INTO pedidos (id_usuario,total,status,data_pedido) VALUES ($1,0,$2,NOW()) RETURNING id', [req.usuarioId, 'ABERTO']);
+        idPedido = novo.rows[0].id;
+      }
+    }
+
+    await client.query('INSERT INTO itens_pedidos (id_pedido,id_produto,quantidade,preco_unitario) VALUES ($1,$2,1,$3)', [idPedido, prod.rows[0].id, v]);
+    const total = await client.query('SELECT COALESCE(SUM(quantidade*preco_unitario),0) as t FROM itens_pedidos WHERE id_pedido=$1', [idPedido]);
+    await client.query('UPDATE pedidos SET total=$1 WHERE id=$2', [total.rows[0].t, idPedido]);
+
+    await client.query('COMMIT');
+    res.json({
+      aprovado: true,
+      mensagem: `Proposta aceita! Sua pelúcia foi adicionada ao carrinho por ${formatBRL(v)} 🎉`,
+      pedidoId: idPedido,
+      produtoId: prod.rows[0].id,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Erro negociar:', err?.message || err);
+    res.status(500).json({ error: err?.message || 'Erro interno' });
+  } finally {
+    client.release();
   }
 });
 

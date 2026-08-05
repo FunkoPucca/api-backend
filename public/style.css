@@ -1446,3 +1446,64 @@ main {
   margin-top: 6px;
   word-break: break-word;
 }
+
+/* ─────────── Gerador: negociação de valor ─────────── */
+.negotiate-box {
+  width: 100%;
+  text-align: left;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.neg-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-dark);
+  margin-bottom: 8px;
+}
+.negotiate-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.neg-currency {
+  font-weight: 700;
+  color: var(--text-gray);
+  font-size: 16px;
+}
+.negotiate-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+}
+.negotiate-row input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(106, 216, 247, 0.25);
+}
+.neg-result {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.neg-result.neg-ok {
+  color: #2e7d32;
+  font-weight: 600;
+}
+.neg-result.neg-fail {
+  color: var(--danger);
+}
+.neg-result a {
+  color: var(--blue-dark);
+  font-weight: 600;
+}
+.neg-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-light);
+}
