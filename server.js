@@ -484,18 +484,28 @@ async function geraImagemPollinations(prompt) {
   const seed = Math.floor(Math.random() * 100000);
   const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?model=flux&width=1024&height=1024&seed=${seed}`;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
-  let response;
-  try {
-    response = await fetch(url, { signal: controller.signal });
-  } catch (e) {
+  // A Pollinations às vezes responde 503/5xx de forma transitória:
+  // tenta até 4 vezes com espera crescente antes de desistir.
+  let response = null;
+  let ultimoStatus = null;
+  for (let tentativa = 0; tentativa < 4; tentativa++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    try {
+      response = await fetch(url, { signal: controller.signal });
+    } catch (e) {
+      clearTimeout(timeout);
+      ultimoStatus = 'network: ' + (e?.message || e);
+      if (tentativa < 3) { await new Promise(r => setTimeout(r, 2000 * (tentativa + 1))); continue; }
+      throw new Error('Falha ao gerar imagem: ' + (e?.message || e));
+    }
     clearTimeout(timeout);
-    throw new Error('Falha ao gerar imagem: ' + (e?.message || e));
+    if (response.ok) break;
+    ultimoStatus = response.status;
+    if (tentativa < 3) { await new Promise(r => setTimeout(r, 2000 * (tentativa + 1))); }
   }
-  clearTimeout(timeout);
 
-  if (!response.ok) throw new Error(`API de imagem retornou ${response.status}`);
+  if (!response || !response.ok) throw new Error(`API de imagem retornou ${ultimoStatus} após tentativas`);
   const buffer = Buffer.from(await response.arrayBuffer());
   return {
     url: `data:image/jpeg;base64,${buffer.toString('base64')}`,
