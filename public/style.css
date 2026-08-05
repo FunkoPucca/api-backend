@@ -669,6 +669,24 @@ main {
   margin-bottom: 10px;
 }
 
+.empty-state p {
+  font-size: 15px;
+  margin: 0 auto 20px;
+  max-width: 380px;
+}
+
+.empty-state .empty-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.empty-state .empty-icon svg {
+  width: 52px;
+  height: 52px;
+  color: #c3c9d4;
+}
+
 /* ---------- Footer ---------- */
 .site-footer {
   background: var(--blue);

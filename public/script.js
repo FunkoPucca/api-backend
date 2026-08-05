@@ -385,7 +385,10 @@
   async function renderCartPage() {
     const c = document.getElementById('cart-page-content'); if (!c) return;
     if (!isLoggedIn()) {
-      c.innerHTML = '<div class="empty-state"><h2>Faça login para ver seu carrinho</h2><a class="btn-primary" href="login.html">Entrar</a></div>';
+      c.innerHTML = '<div class="empty-state"><div class="empty-icon">' + ICONS.cart + '</div>' +
+        '<h2>Você precisa fazer login</h2>' +
+        '<p>Entre na sua conta para ver seu carrinho e finalizar suas compras.</p>' +
+        '<a class="btn-primary" href="login.html">Fazer login</a></div>';
       return;
     }
     async function draw() {
@@ -606,7 +609,10 @@
   async function renderOrdersPage() {
     const c = document.getElementById('orders-content'); if (!c) return;
     if (!isLoggedIn()) {
-      c.innerHTML = '<div class="empty-state"><h2>Faça login para ver seus pedidos</h2><a class="btn-primary" href="login.html">Entrar</a></div>';
+      c.innerHTML = '<div class="empty-state"><div class="empty-icon">' + ICONS.cart + '</div>' +
+        '<h2>Você precisa fazer login</h2>' +
+        '<p>Entre na sua conta para ver seus pedidos.</p>' +
+        '<a class="btn-primary" href="login.html">Fazer login</a></div>';
       return;
     }
     try {
