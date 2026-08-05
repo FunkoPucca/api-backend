@@ -612,7 +612,9 @@
     try {
       c.innerHTML = '<div class="loading-spinner"></div>';
       const orders = await apiFetch('/pedidos');
-      let html = '<div class="orders-toolbar"><button class="btn-primary btn-sm" id="demo-orders-btn">Gerar pedidos de demonstração (entregues)</button></div>';
+      let html = '<div class="orders-toolbar">' +
+        '<button class="btn-primary btn-sm" id="demo-finalizado-btn">Gerar pedido finalizado (p/ marcar como entregue)</button>' +
+        '<button class="btn-primary btn-sm" id="demo-orders-btn">Gerar pedidos entregues</button></div>';
       if (!orders || orders.length === 0) {
         c.innerHTML = '<div class="empty-state"><h2>Nenhum pedido ainda</h2><p>Que tal fazer sua primeira compra?</p><a class="btn-primary" href="index.html">Ver produtos</a></div>' + html;
         bindDemoBtn();
@@ -658,18 +660,20 @@
 
   function bindDemoBtn() {
     const db = document.getElementById('demo-orders-btn');
-    if (db) db.addEventListener('click', demoOrders);
+    if (db) db.addEventListener('click', () => demoCriar('/demo/pedidos-entregues', 'demo-orders-btn', 'Gerar pedidos entregues'));
+    const df = document.getElementById('demo-finalizado-btn');
+    if (df) df.addEventListener('click', () => demoCriar('/demo/pedidos-finalizados', 'demo-finalizado-btn', 'Gerar pedido finalizado (p/ marcar como entregue)'));
   }
 
-  async function demoOrders() {
-    const db = document.getElementById('demo-orders-btn');
+  async function demoCriar(path, btnId, label) {
+    const db = document.getElementById(btnId);
     if (db) { db.disabled = true; db.textContent = 'Gerando...'; }
     try {
-      const r = await apiFetch('/demo/pedidos-entregues', { method: 'POST' });
+      const r = await apiFetch(path, { method: 'POST' });
       showToast(r.mensagem);
       renderOrdersPage();
     } catch (e) {
-      if (db) { db.disabled = false; db.textContent = 'Gerar pedidos de demonstração (entregues)'; }
+      if (db) { db.disabled = false; db.textContent = label; }
       showToast(e.message);
     }
   }

@@ -272,34 +272,51 @@ app.post('/pedidos/:id/entregar', autenticar, async (req, res) => {
   } catch (err) { console.error('Erro entregar:', err); res.status(500).json({ error: 'Erro interno' }); }
 });
 
+async function criarPedidosDemo(client, idUsuario, status, quantidade) {
+  const prods = await client.query("SELECT id, nome, preco, imagem FROM produtos WHERE status = true ORDER BY RANDOM() LIMIT 5");
+  if (prods.rows.length < 2) throw Object.assign(new Error('Cadastre pelo menos 2 produtos ativos'), { status: 400 });
+  const criados = [];
+  for (let i = 0; i < quantidade; i++) {
+    const qtd = 1 + (i % 2);
+    const escolhidos = prods.rows.slice(i % 2, (i % 2) + 2);
+    const total = escolhidos.reduce((s, pp) => s + Number(pp.preco) * qtd, 0);
+    const data = new Date(Date.now() - (i + 1) * 7 * 86400000);
+    const pedido = await client.query(
+      'INSERT INTO pedidos (id_usuario,total,status,data_pedido,endereco_entrega,metodo_pagamento) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [idUsuario, total, status, data, 'Rua das Flores, 123 - Centro, São Paulo - SP, CEP: 00000-000', ['PIX', 'Cartão', 'Boleto'][i]]
+    );
+    for (const pp of escolhidos) {
+      await client.query(
+        'INSERT INTO itens_pedidos (id_pedido,id_produto,quantidade,preco_unitario) VALUES ($1,$2,$3,$4)',
+        [pedido.rows[0].id, pp.id, qtd, pp.preco]
+      );
+    }
+    criados.push(formatPreco(pedido.rows[0]));
+  }
+  return criados;
+}
+
 /* Cria pedidos entregues de demonstração para o usuário logado (apresentação) */
 app.post('/demo/pedidos-entregues', autenticar, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const prods = await client.query("SELECT id, nome, preco, imagem FROM produtos WHERE status = true ORDER BY RANDOM() LIMIT 5");
-    if (prods.rows.length < 2) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Cadastre pelo menos 2 produtos ativos' }); }
-    const criados = [];
-    for (let i = 0; i < 3; i++) {
-      const qtd = 1 + (i % 2);
-      const escolhidos = prods.rows.slice(i % 2, (i % 2) + 2);
-      const total = escolhidos.reduce((s, pp) => s + Number(pp.preco) * qtd, 0);
-      const data = new Date(Date.now() - (i + 1) * 7 * 86400000);
-      const pedido = await client.query(
-        "INSERT INTO pedidos (id_usuario,total,status,data_pedido,endereco_entrega,metodo_pagamento) VALUES ($1,$2,'ENTREGUE',$3,$4,$5) RETURNING *",
-        [req.usuarioId, total, data, 'Rua das Flores, 123 - Centro, São Paulo - SP, CEP: 00000-000', ['PIX', 'Cartão', 'Boleto'][i]]
-      );
-      for (const pp of escolhidos) {
-        await client.query(
-          'INSERT INTO itens_pedidos (id_pedido,id_produto,quantidade,preco_unitario) VALUES ($1,$2,$3,$4)',
-          [pedido.rows[0].id, pp.id, qtd, pp.preco]
-        );
-      }
-      criados.push(formatPreco(pedido.rows[0]));
-    }
+    const criados = await criarPedidosDemo(client, req.usuarioId, 'ENTREGUE', 3);
     await client.query('COMMIT');
     res.status(201).json({ mensagem: '3 pedidos de demonstração entregues criados', pedidos: criados });
-  } catch (err) { await client.query('ROLLBACK'); console.error('Erro demo entregues:', err); res.status(500).json({ error: 'Erro interno' }); }
+  } catch (err) { await client.query('ROLLBACK'); console.error('Erro demo entregues:', err); res.status(err.status ? 400 : 500).json({ error: err.message || 'Erro interno' }); }
+  finally { client.release(); }
+});
+
+/* Cria pedidos FINALIZADO de demonstração (para marcar como entregue na apresentação) */
+app.post('/demo/pedidos-finalizados', autenticar, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const criados = await criarPedidosDemo(client, req.usuarioId, 'FINALIZADO', 2);
+    await client.query('COMMIT');
+    res.status(201).json({ mensagem: '2 pedidos finalizados de demonstração criados', pedidos: criados });
+  } catch (err) { await client.query('ROLLBACK'); console.error('Erro demo finalizados:', err); res.status(err.status ? 400 : 500).json({ error: err.message || 'Erro interno' }); }
   finally { client.release(); }
 });
 

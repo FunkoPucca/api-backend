@@ -1165,6 +1165,8 @@ main {
 .orders-toolbar {
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
   margin-bottom: 20px;
 }
 
