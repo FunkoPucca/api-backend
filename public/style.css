@@ -389,7 +389,10 @@ main {
   display: flex;
   gap: 56px;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
 .product-gallery {
@@ -409,6 +412,7 @@ main {
 
 .product-info {
   flex: 1 1 320px;
+  max-width: 560px;
   padding-top: 6px;
 }
 
@@ -451,6 +455,10 @@ main {
   align-items: center;
   gap: 16px;
   margin-bottom: 26px;
+}
+
+.product-info .btn-primary {
+  margin-top: 4px;
 }
 
 .qty-control {
@@ -1055,6 +1063,13 @@ main {
 .out-of-stock { color: #ef4444; font-weight: 700; font-size: 14px; }
 
 /* ---------- Reviews ---------- */
+.reviews-section,
+.review-form {
+  max-width: 880px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .reviews-section {
   margin-top: 40px;
   padding-top: 24px;
@@ -1068,6 +1083,7 @@ main {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .review-summary { color: #f59e0b; font-size: 14px; font-weight: 600; }
@@ -1116,9 +1132,55 @@ main {
 
 .star-btn:hover { color: #f59e0b; }
 
+.review-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--border-gray);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
+.review-form .btn-primary {
+  margin-top: 2px;
+}
+
 .btn-sm {
   padding: 10px 20px;
   font-size: 13px;
+}
+
+/* ---------- Search info ---------- */
+.search-info {
+  text-align: center;
+  color: var(--text-gray);
+  font-size: 14px;
+  margin: 0 0 24px;
+}
+
+/* ---------- Orders toolbar / action ---------- */
+.orders-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+.order-action {
+  border: 1px solid #3b82f6;
+  color: #3b82f6;
+  background: #fff;
+  cursor: pointer;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.order-action:hover {
+  background: #3b82f6;
+  color: #fff;
 }
 
 /* ---------- Status badge ---------- */

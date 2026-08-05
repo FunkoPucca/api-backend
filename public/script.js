@@ -99,13 +99,21 @@
   /* ─────────── Helpers ─────────── */
   function formatPrice(v) { return 'R$ ' + Number(v).toFixed(2).replace('.', ','); }
 
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  const PLACEHOLDER_SVG = '<div class="img-placeholder"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="#ccc"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg></div>';
+
   const ICONS = {
     cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none"/><circle cx="17" cy="20" r="1.4" fill="currentColor" stroke="none"/><path d="M2.5 3h2l2.2 11.6a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L20 7H5.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     star: '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/></svg>',
   };
 
   function statusBadge(s) {
-    const colors = { ABERTO: '#f59e0b', FINALIZADO: '#10b981', CANCELADO: '#ef4444' };
+    const colors = { ABERTO: '#f59e0b', FINALIZADO: '#10b981', ENTREGUE: '#3b82f6', CANCELADO: '#ef4444' };
     return '<span class="status-badge" style="background:' + (colors[s] || '#999') + '">' + s + '</span>';
   }
 
@@ -114,18 +122,43 @@
     const card = document.createElement('a');
     card.className = 'card';
     card.href = 'produto.html?id=' + p.id;
-    card.innerHTML =
-      '<div class="card-media">' +
-      '<img src="' + (p.imagem || '') + '" alt="' + p.nome + '" loading="lazy" onerror="this.closest(\'.card-media\').innerHTML=\'<div class=img-placeholder><svg width=48 height=48 viewBox=\\"0 0 24 24\\" fill=none stroke=#ccc stroke-width=1.5><rect x=3 y=3 width=18 height=18 rx=2/><circle cx=8.5 cy=8.5 r=1.5 fill=#ccc/><path d=\\"M3 16l5-5 4 4 3-3 6 6\\"/></svg></div>\'" />' +
-      (p.categoria ? '<span class="card-cat">' + p.categoria + '</span>' : '') +
-      '</div>' +
-      '<div class="card-title">' + p.nome + '</div>' +
-      '<div class="card-footer"><div class="card-price">' + formatPrice(p.preco) + '</div>' +
-      '<button class="cart-btn" type="button">' + ICONS.cart + ' CARRINHO</button></div>';
-    card.querySelector('.cart-btn').addEventListener('click', function (e) {
+    const media = document.createElement('div');
+    media.className = 'card-media';
+    const img = document.createElement('img');
+    img.src = p.imagem || '';
+    img.alt = p.nome || '';
+    img.loading = 'lazy';
+    img.addEventListener('error', function () { media.innerHTML = PLACEHOLDER_SVG; });
+    media.appendChild(img);
+    if (p.categoria) {
+      const tag = document.createElement('span');
+      tag.className = 'card-cat';
+      tag.textContent = p.categoria;
+      media.appendChild(tag);
+    }
+    card.appendChild(media);
+
+    const title = document.createElement('div');
+    title.className = 'card-title';
+    title.textContent = p.nome || '';
+    card.appendChild(title);
+
+    const footer = document.createElement('div');
+    footer.className = 'card-footer';
+    const price = document.createElement('div');
+    price.className = 'card-price';
+    price.textContent = formatPrice(p.preco);
+    const cartBtn = document.createElement('button');
+    cartBtn.className = 'cart-btn';
+    cartBtn.type = 'button';
+    cartBtn.innerHTML = ICONS.cart + ' CARRINHO';
+    cartBtn.addEventListener('click', function (e) {
       e.preventDefault(); e.stopPropagation();
       addToCart(p.id, 1).then(() => showToast(p.nome + ' adicionado!')).catch(e => showToast(e.message));
     });
+    footer.appendChild(price);
+    footer.appendChild(cartBtn);
+    card.appendChild(footer);
     return card;
   }
 
@@ -143,12 +176,36 @@
   }
 
   /* ─────────── Catalog ─────────── */
+  let catalogQuery = null;
+
+  function readCatalogQuery() {
+    const params = new URLSearchParams(window.location.search);
+    const q = (params.get('busca') || params.get('q') || '').trim();
+    catalogQuery = q || null;
+  }
+
   async function renderCatalog() {
     const m = document.getElementById('catalog'); if (!m) return;
+    readCatalogQuery();
     m.innerHTML = '<section class="catalog" id="catalogo">' +
       '<h2 class="section-title">Nossas pelúcias</h2>' +
       '<div class="filter-bar" id="filter-bar"><button class="filter-btn active" data-cat="">Todas</button></div>' +
+      (catalogQuery ? '<p class="search-info">Resultados para "' + esc(catalogQuery) + '"</p>' : '') +
       '<div class="product-grid" id="product-grid"><div class="loading-spinner"></div></div></section>';
+
+    // Filter buttons (including "Todas")
+    document.getElementById('filter-bar').querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cat = btn.dataset.cat || '';
+        if (catalogQuery) {
+          const params = new URLSearchParams(window.location.search);
+          if (cat) params.set('categoria', cat); else params.delete('categoria');
+          window.location.href = 'index.html?' + params.toString();
+        } else {
+          setCatalogState({ cat });
+        }
+      });
+    });
 
     // Load categories
     try {
@@ -158,19 +215,43 @@
         const btn = document.createElement('button');
         btn.className = 'filter-btn'; btn.dataset.cat = c;
         btn.textContent = c;
-        btn.addEventListener('click', () => loadProducts(c, btn));
+        btn.addEventListener('click', () => {
+          if (catalogQuery) {
+            const params = new URLSearchParams(window.location.search);
+            params.set('categoria', c);
+            window.location.href = 'index.html?' + params.toString();
+          } else {
+            setCatalogState({ cat: c });
+          }
+        });
         fb.appendChild(btn);
       });
     } catch {}
+
+    function setCatalogState(state) {
+      const params = new URLSearchParams(window.location.search);
+      if (state.cat) params.set('categoria', state.cat); else params.delete('categoria');
+      window.history.pushState({}, '', 'index.html?' + params.toString());
+      readCatalogQuery();
+      loadProducts(state.cat, state.cat ? null : document.querySelector('[data-cat=""]'));
+    }
 
     async function loadProducts(cat, activeBtn) {
       const grid = document.getElementById('product-grid');
       grid.innerHTML = '<div class="loading-spinner"></div>';
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       if (activeBtn) activeBtn.classList.add('active');
+      const catFromUrl = new URLSearchParams(window.location.search).get('categoria');
+      const useCat = cat || catFromUrl || '';
+      if (!activeBtn && useCat) {
+        const match = document.querySelector('.filter-btn[data-cat="' + CSS.escape(useCat) + '"]');
+        if (match) match.classList.add('active');
+      }
       try {
-        const params = cat ? '?categoria=' + encodeURIComponent(cat) : '';
-        let produtos = await apiFetch('/produtos' + params);
+        const params = new URLSearchParams();
+        if (useCat) params.set('categoria', useCat);
+        if (catalogQuery) params.set('nome', catalogQuery);
+        let produtos = await apiFetch('/produtos?' + params.toString());
         produtos = produtos.filter(p => p.status !== false);
         grid.innerHTML = '';
         if (produtos.length === 0) { grid.innerHTML = '<p class="empty-state">Nenhum produto encontrado.</p>'; return; }
@@ -178,7 +259,7 @@
       } catch { grid.innerHTML = '<p class="empty-state">Erro ao carregar produtos.</p>'; }
     }
 
-    loadProducts('', document.querySelector('.filter-btn'));
+    loadProducts(null, null);
   }
 
   /* ─────────── Product Page ─────────── */
@@ -219,19 +300,29 @@
 
       c.innerHTML =
         '<div class="product-detail">' +
-        '<div class="product-gallery"><img src="' + (p.imagem || '') + '" alt="' + p.nome + '" onerror="this.closest(\'.product-gallery\').innerHTML=\'<div class=img-placeholder><svg width=64 height=64 viewBox=\\"0 0 24 24\\" fill=none stroke=#ccc stroke-width=1.5><rect x=3 y=3 width=18 height=18 rx=2/><circle cx=8.5 cy=8.5 r=1.5 fill=#ccc/><path d=\\"M3 16l5-5 4 4 3-3 6 6\\"/></svg></div>\'" /></div>' +
+        '<div class="product-gallery" id="prod-gallery"></div>' +
         '<div class="product-info">' +
-        (p.categoria ? '<span class="product-tag">' + p.categoria + '</span>' : '') +
-        '<h1>' + p.nome + '</h1>' +
+        (p.categoria ? '<span class="product-tag">' + esc(p.categoria) + '</span>' : '') +
+        '<h1>' + esc(p.nome) + '</h1>' +
         '<div class="price">' + formatPrice(p.preco) + '</div>' +
         '<div class="stock-info">' + (p.quantidade_estoque > 0 ? '<span class="in-stock">Em estoque (' + p.quantidade_estoque + ' unid.)</span>' : '<span class="out-of-stock">Fora de estoque</span>') + '</div>' +
-        '<p>' + (p.descricao || '') + '</p>' +
+        '<p>' + esc(p.descricao) + '</p>' +
         '<div class="qty-row"><div class="qty-control">' +
         '<button type="button" data-act="dec">−</button><span id="qty-value">1</span><button type="button" data-act="inc">+</button>' +
         '</div></div>' +
         '<button class="btn-primary" id="add-to-cart" ' + (p.quantidade_estoque <= 0 ? 'disabled' : '') + '>Adicionar ao carrinho</button>' +
         '</div></div>' +
         reviewsHtml + reviewForm;
+
+      // Product image (fallback placeholder without inline onerror)
+      const gallery = c.querySelector('#prod-gallery');
+      if (gallery) {
+        const gimg = document.createElement('img');
+        gimg.src = p.imagem || '';
+        gimg.alt = p.nome || '';
+        gimg.addEventListener('error', function () { gallery.innerHTML = PLACEHOLDER_SVG; });
+        gallery.appendChild(gimg);
+      }
 
       // Qty controls
       const qtyEl = c.querySelector('#qty-value');
@@ -521,29 +612,65 @@
     try {
       c.innerHTML = '<div class="loading-spinner"></div>';
       const orders = await apiFetch('/pedidos');
+      let html = '<div class="orders-toolbar"><button class="btn-primary btn-sm" id="demo-orders-btn">Gerar pedidos de demonstração (entregues)</button></div>';
       if (!orders || orders.length === 0) {
-        c.innerHTML = '<div class="empty-state"><h2>Nenhum pedido ainda</h2><p>Que tal fazer sua primeira compra?</p><a class="btn-primary" href="index.html">Ver produtos</a></div>';
+        c.innerHTML = '<div class="empty-state"><h2>Nenhum pedido ainda</h2><p>Que tal fazer sua primeira compra?</p><a class="btn-primary" href="index.html">Ver produtos</a></div>' + html;
+        bindDemoBtn();
         return;
       }
-      c.innerHTML = '<div class="orders-list">';
+      html += '<div class="orders-list">';
       orders.forEach(o => {
         const items = o.itens && o.itens.length > 0
-          ? o.itens.map(i => '<div class="order-item"><span>' + i.nome + ' x' + i.quantidade + '</span><span>' + formatPrice(i.preco_unitario * i.quantidade) + '</span></div>').join('')
+          ? o.itens.map(i => '<div class="order-item"><span>' + esc(i.nome) + ' x' + i.quantidade + '</span><span>' + formatPrice(i.preco_unitario * i.quantidade) + '</span></div>').join('')
           : '<div class="order-item"><span>Carrinho vazio</span></div>';
-        c.innerHTML +=
+        const acao = o.status === 'FINALIZADO'
+          ? '<button class="order-action btn-sm" data-entregar="' + o.id + '">Marcar como entregue</button>'
+          : '';
+        html +=
           '<div class="order-card">' +
           '<div class="order-header">' +
           '<span>Pedido #' + o.id + '</span>' +
           statusBadge(o.status) +
           '<span class="order-date">' + new Date(o.data_pedido).toLocaleDateString('pt-BR') + '</span>' +
           '<span class="order-total">' + formatPrice(o.total) + '</span>' +
+          acao +
           '</div>' +
           '<div class="order-body">' + items + '</div>' +
           '</div>';
       });
-      c.innerHTML += '</div>';
+      html += '</div>';
+      c.innerHTML = html;
+
+      c.querySelectorAll('[data-entregar]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            await apiFetch('/pedidos/' + btn.dataset.entregar + '/entregar', { method: 'POST' });
+            showToast('Pedido marcado como entregue!');
+            renderOrdersPage();
+          } catch (e) { showToast(e.message); }
+        });
+      });
+      bindDemoBtn();
     } catch (e) {
       c.innerHTML = '<div class="empty-state"><h2>Erro ao carregar pedidos</h2></div>';
+    }
+  }
+
+  function bindDemoBtn() {
+    const db = document.getElementById('demo-orders-btn');
+    if (db) db.addEventListener('click', demoOrders);
+  }
+
+  async function demoOrders() {
+    const db = document.getElementById('demo-orders-btn');
+    if (db) { db.disabled = true; db.textContent = 'Gerando...'; }
+    try {
+      const r = await apiFetch('/demo/pedidos-entregues', { method: 'POST' });
+      showToast(r.mensagem);
+      renderOrdersPage();
+    } catch (e) {
+      if (db) { db.disabled = false; db.textContent = 'Gerar pedidos de demonstração (entregues)'; }
+      showToast(e.message);
     }
   }
 
@@ -590,6 +717,10 @@
     initCheckoutModal();
     renderOrdersPage();
     renderAdmin();
+
+    window.addEventListener('popstate', function () {
+      renderCatalog();
+    });
 
     const page = document.body.dataset.page;
     if (page === 'login') renderAuthForm('login');

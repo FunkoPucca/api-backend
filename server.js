@@ -259,6 +259,50 @@ app.post('/pedidos/:id/cancelar', autenticar, async (req, res) => {
   } catch (err) { console.error('Erro cancelar:', err); res.status(500).json({ error: 'Erro interno' }); }
 });
 
+/* Marca um pedido finalizado como entregue (apresentação) */
+app.post('/pedidos/:id/entregar', autenticar, async (req, res) => {
+  try {
+    const p = await pool.query('SELECT * FROM pedidos WHERE id=$1', [req.params.id]);
+    if (p.rows.length === 0) return res.status(404).json({ error: 'Pedido não encontrado' });
+    const pedido = p.rows[0];
+    if (pedido.id_usuario !== req.usuarioId) return res.status(403).json({ error: 'Pedido de outro usuário' });
+    if (pedido.status !== 'FINALIZADO') return res.status(422).json({ error: `Apenas pedidos FINALIZADO podem virar ENTREGUE (atual: ${pedido.status})` });
+    const r = await pool.query("UPDATE pedidos SET status='ENTREGUE' WHERE id=$1 RETURNING *", [req.params.id]);
+    res.json(formatPreco(r.rows[0]));
+  } catch (err) { console.error('Erro entregar:', err); res.status(500).json({ error: 'Erro interno' }); }
+});
+
+/* Cria pedidos entregues de demonstração para o usuário logado (apresentação) */
+app.post('/demo/pedidos-entregues', autenticar, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const prods = await client.query("SELECT id, nome, preco, imagem FROM produtos WHERE status = true ORDER BY RANDOM() LIMIT 5");
+    if (prods.rows.length < 2) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Cadastre pelo menos 2 produtos ativos' }); }
+    const criados = [];
+    for (let i = 0; i < 3; i++) {
+      const qtd = 1 + (i % 2);
+      const escolhidos = prods.rows.slice(i % 2, (i % 2) + 2);
+      const total = escolhidos.reduce((s, pp) => s + Number(pp.preco) * qtd, 0);
+      const data = new Date(Date.now() - (i + 1) * 7 * 86400000);
+      const pedido = await client.query(
+        "INSERT INTO pedidos (id_usuario,total,status,data_pedido,endereco_entrega,metodo_pagamento) VALUES ($1,$2,'ENTREGUE',$3,$4,$5) RETURNING *",
+        [req.usuarioId, total, data, 'Rua das Flores, 123 - Centro, São Paulo - SP, CEP: 00000-000', ['PIX', 'Cartão', 'Boleto'][i]]
+      );
+      for (const pp of escolhidos) {
+        await client.query(
+          'INSERT INTO itens_pedidos (id_pedido,id_produto,quantidade,preco_unitario) VALUES ($1,$2,$3,$4)',
+          [pedido.rows[0].id, pp.id, qtd, pp.preco]
+        );
+      }
+      criados.push(formatPreco(pedido.rows[0]));
+    }
+    await client.query('COMMIT');
+    res.status(201).json({ mensagem: '3 pedidos de demonstração entregues criados', pedidos: criados });
+  } catch (err) { await client.query('ROLLBACK'); console.error('Erro demo entregues:', err); res.status(500).json({ error: 'Erro interno' }); }
+  finally { client.release(); }
+});
+
 /* ─────────────── CHECKOUT ─────────────── */
 
 app.put('/pedidos/:id/checkout', autenticar, async (req, res) => {
@@ -485,6 +529,16 @@ async function estiloReferenciaHome() {
 
   try {
     const refs = [];
+    // Referência principal: a pelúcia gerada "Cachorro verde" (estilo favorito do usuário)
+    try {
+      const r = await pool.query("SELECT imagem FROM produtos WHERE (categoria = 'Personalizada' OR nome ILIKE '%verde%') AND imagem LIKE '/uploads/geradas/%' ORDER BY id DESC LIMIT 1");
+      if (r.rows.length && r.rows[0].imagem) {
+        const f = path.join(__dirname, r.rows[0].imagem.replace(/^\/+/, ''));
+        if (fs.existsSync(f)) {
+          refs.push({ mime: 'image/jpeg', data: fs.readFileSync(f).toString('base64') });
+        }
+      }
+    } catch (e) { /* sem banco/imagem não é fatal */ }
     const dirProdutos = path.join(__dirname, 'public', 'images', 'produtos');
     if (fs.existsSync(dirProdutos)) {
       const imgs = fs.readdirSync(dirProdutos)
