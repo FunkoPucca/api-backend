@@ -464,10 +464,69 @@ async function geminiCriaPrompt(conceito, legenda) {
     'Você é um especialista em criar prompts de pelúcias fofas para crianças. Você SEMPRE converte qualquer ideia em um brinquedo de pelúcia fofo, kawaii e infantil, mantendo a originalidade e os detalhes específicos da ideia. Você NUNCA descreve humanos, pessoas ou corpos.');
 }
 
+const ESTILO_HOME_PADRAO =
+  'Pelúcia kawaii fofa de loja: corpo redondo e abraçável, olhos grandes brilhantes e simpáticos, ' +
+  'nariz e boca minúsculos, bochechas rosadas, costura e bordado bem detalhados, pelagem macia e fofa, ' +
+  'cores suaves e vibrantes, sempre de frente com o rosto centralizado olhando para a câmera, ' +
+  'foto de produto em estúdio com fundo limpo e iluminação suave.';
+
+let _estiloHomeCache = null;
+async function estiloReferenciaHome() {
+  // Usa as pelúcias exibidas na home (banner + fotos dos produtos) como referência
+  // de estilo para as pelúcias geradas. Calculado 1x e cacheado em disco.
+  if (_estiloHomeCache) return _estiloHomeCache;
+  const cachePath = path.join(__dirname, 'uploads', 'estilo-home.txt');
+  try {
+    if (fs.existsSync(cachePath)) {
+      const t = fs.readFileSync(cachePath, 'utf8').trim();
+      if (t) { _estiloHomeCache = t; return t; }
+    }
+  } catch (e) { /* segue o fluxo */ }
+
+  try {
+    const refs = [];
+    const dirProdutos = path.join(__dirname, 'public', 'images', 'produtos');
+    if (fs.existsSync(dirProdutos)) {
+      const imgs = fs.readdirSync(dirProdutos)
+        .filter(f => /\.(jpg|jpeg|png)$/i.test(f))
+        .sort(() => Math.random() - 0.5).slice(0, 4);
+      for (const f of imgs) {
+        const buf = fs.readFileSync(path.join(dirProdutos, f));
+        refs.push({ mime: /\.png$/i.test(f) ? 'image/png' : 'image/jpeg', data: buf.toString('base64') });
+      }
+    }
+    const bannerPath = path.join(__dirname, 'public', 'images', 'banner.png');
+    if (fs.existsSync(bannerPath)) {
+      refs.push({ mime: 'image/png', data: fs.readFileSync(bannerPath).toString('base64') });
+    }
+    if (refs.length) {
+      const parts = [
+        { text: 'Analise estas fotos de pelúcias da loja Fluffy Dreams. Descreva em até 60 palavras o ESTILO VISUAL dessas pelúcias: proporções, olhos, cara/expressão, acabamento e costura, cores, posição (de frente?), fundo e iluminação. Esse texto servirá de referência de estilo para gerar novas pelúcias fofas, detalhadas e sempre de frente. Em português, objetivo.' },
+        ...refs.map(r => ({ inline_data: { mime_type: r.mime, data: r.data } })),
+      ];
+      const estilo = await geminiCall(parts,
+        'Você é um diretor de arte especialista em pelúcias fofas e fotografia de produto.');
+      if (estilo && estilo.trim()) {
+        const t = estilo.trim().slice(0, 300);
+        _estiloHomeCache = t;
+        try {
+          fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
+          fs.writeFileSync(cachePath, t);
+        } catch (e) { /* cache em disco é opcional */ }
+        return t;
+      }
+    }
+  } catch (e) {
+    console.error('Falha ao extrair estilo da home:', e?.message || e);
+  }
+  _estiloHomeCache = ESTILO_HOME_PADRAO;
+  return ESTILO_HOME_PADRAO;
+}
+
 async function geraImagemPollinations(prompt) {
   // A aparência da pelúcia é guiada PELO PROMPT GERADO PELO GEMINI (específico).
-  // Aqui só garantimos que é uma pelúcia (sem humanos) e variamos o "estilo"
-  // a cada geração para nunca saírem todas iguais.
+  // Aqui garantimos que é uma pelúcia (sem humanos) fofa e detalhada, sempre de
+  // frente, usando as pelúcias da home como referência de estilo.
   const conceito = (prompt || '').trim();
   const vibes = [
     'kawaii chibi style',
@@ -477,12 +536,13 @@ async function geraImagemPollinations(prompt) {
     'pastel soft kawaii style',
   ];
   const vibe = vibes[Math.floor(Math.random() * vibes.length)];
-  const guard = `super cute soft plush stuffed toy, ${vibe}, fluffy plush fabric, children's plush toy, studio product photo, high quality. STRICTLY a plush toy: no real humans, no people, no body, no skin, no nude.`;
+  const estiloRef = await estiloReferenciaHome();
+  const guard = `super cute soft plush stuffed toy, ${vibe}, fluffy plush fabric, children's plush toy, studio product photo, high quality. FRONT VIEW, FORWARD FACING: the plushie faces the camera directly, looking straight ahead, full adorable face clearly visible, big shiny kawaii eyes looking forward, centered composition, never from behind, never sideways, never back view. HIGHLY DETAILED and polished: intricate embroidery, soft rich fur texture, cute stitched details, premium handcrafted children's toy. STRICTLY a plush toy: no real humans, no people, no body, no skin, no nude. Style reference from the store's plushies: ${estiloRef}`;
   const finalPrompt = conceito
     ? `${conceito}. ${guard}`
     : `cute teddy bear plush toy. ${guard}`;
   const seed = Math.floor(Math.random() * 100000);
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?model=flux&width=1024&height=1024&seed=${seed}`;
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?model=flux&width=1024&height=1024&seed=${seed}&safe=true&negative=human,woman,man,person,baby,people,face`;
 
   // A Pollinations às vezes responde 503/5xx de forma transitória:
   // tenta até 4 vezes com espera crescente antes de desistir.
