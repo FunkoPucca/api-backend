@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Crie sua pelúcia personalizada com IA na Fluffy Dreams." />
+<meta name="theme-color" content="#6ad8f7" />
+<title>Criar Pelúcia com IA - Fluffy Dreams</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body data-page="generate">
+  <header class="site-header">
+    <div class="logo"><a href="index.html">Fluffy Dreams</a></div>
+    <form class="search-box" role="search" id="search-form" action="index.html">
+      <input type="text" id="search-input" placeholder="BUSCAR" aria-label="Buscar produtos" />
+      <button type="submit" aria-label="Buscar">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </form>
+    <nav class="header-icons">
+      <a href="generate.html" class="icon-btn filled" aria-label="Criar com IA">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z" fill="currentColor"/></svg>
+      </a>
+      <a href="carrinho.html" class="icon-btn" aria-label="Carrinho">
+        <svg viewBox="0 0 24 24"><path d="M7 4h-2l-1 2v2h2l3.6 7.59-1.35 2.44c-.16.28-.25.61-.25.97 0 1.1.9 2 2 2h12v-2h-11.85c-.13 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.24-5.88c.09-.16.14-.35.14-.53 0-.55-.45-1-1-1h-13.65l-.94-2h-4.13z"/></svg>
+        <span class="cart-badge">0</span>
+      </a>
+      <a href="login.html" class="icon-btn login-link" aria-label="Conta">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+      </a>
+      <a href="#" class="icon-btn account-link" id="logout-btn" style="display:none">
+        <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" fill="currentColor"/></svg>
+      </a>
+    </nav>
+  </header>
+
+  <main class="generate-page">
+    <h1 class="section-title">
+      <svg viewBox="0 0 24 24"><path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z" fill="currentColor"/></svg>
+      Criar pelúcia com IA
+    </h1>
+    <p class="generate-subtitle">Envie uma foto de referência ou descreva com palavras — a IA transforma em imagem, sempre no estilo fofinho Fluffy Dreams!</p>
+
+    <div class="mode-toggle" role="tablist">
+      <button type="button" class="filter-btn active" data-mode="image" role="tab" aria-selected="true">🖼️ Por Imagem</button>
+      <button type="button" class="filter-btn" data-mode="text" role="tab" aria-selected="false">✍️ Por Texto</button>
+    </div>
+
+    <!-- Layout único: controles à esquerda, caixa de resultado à direita (nos dois modos) -->
+    <div class="generate-layout">
+      <div class="generate-left">
+
+        <!-- Controles: modo imagem -->
+        <div id="controls-image" class="generate-mode-content">
+          <div class="field">
+            <label for="image-caption">Detalhes adicionais (opcional)</label>
+            <input type="text" id="image-caption" placeholder="Ex: transformar em ursinho rosa fofinho" />
+          </div>
+        </div>
+
+        <!-- Controles: modo texto -->
+        <div id="controls-text" class="generate-mode-content" style="display:none">
+          <div class="field">
+            <label for="prompt-input">Descreva sua pelúcia</label>
+            <textarea id="prompt-input" placeholder="Ex: um ursinho rosa com coração na barriga..."></textarea>
+          </div>
+          <div class="example-buttons">
+            <button type="button" class="example-btn" data-prompt="ursinho panda preto e branco">🐼 Panda</button>
+            <button type="button" class="example-btn" data-prompt="coelho lilás com orelhas compridas">🐇 Coelho lilás</button>
+            <button type="button" class="example-btn" data-prompt="gatinho laranja listrado">🐱 Gatinho</button>
+            <button type="button" class="example-btn" data-prompt="unicórnio colorido com chifre brilhante">🦄 Unicórnio</button>
+            <button type="button" class="example-btn" data-prompt="capivara relaxando na lagoa">🐹 Capivara</button>
+            <button type="button" class="example-btn" data-prompt="cachorrinho caramelo com orelhas caídas">🐕 Cachorro</button>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="generate-btn">✨ Gerar pelúcia</button>
+        <p class="generate-hint">A geração leva de 5 a 15 segundos. Quanto mais detalhes, melhor o resultado!</p>
+      </div>
+
+      <div class="generate-right">
+        <div class="generate-box" id="generate-box">
+
+          <!-- Caixa vazia: modo imagem (dropzone) -->
+          <div id="box-upload" class="box-state upload-box">
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+            <svg class="upload-icon" id="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="4" y="4" width="16" height="16" rx="1"></rect>
+              <circle cx="9" cy="9.5" r="1.5" fill="currentColor" stroke="none"></circle>
+              <path d="M4 16l5-5 3 3 4-4 4 4" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <div class="upload-text" id="upload-text">Arraste uma imagem aqui ou clique para enviar</div>
+            <button type="button" class="upload-remove" id="upload-remove" style="display:none" aria-label="Remover imagem">✕</button>
+            <input type="file" id="file-input" accept="image/*" hidden />
+          </div>
+
+          <!-- Caixa vazia: modo texto (placeholder) -->
+          <div id="box-placeholder" class="box-state" style="display:none">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/><circle cx="12" cy="11" r="3" fill="#ccc"/></svg>
+            <p>Sua pelúcia vai aparecer aqui</p>
+          </div>
+
+          <!-- Carregando (compartilhado) -->
+          <div id="box-loading" class="box-state" style="display:none">
+            <div class="spinner"></div>
+            <p id="loading-text">Gerando sua pelúcia personalizada...</p>
+            <p id="loading-steps" class="loading-steps"></p>
+          </div>
+
+          <!-- Resultado (compartilhado) -->
+          <div id="box-result" class="box-state box-result" style="display:none">
+            <img id="result-img" src="" alt="Pelúcia gerada" />
+            <div id="result-desc" class="result-desc" style="display:none"></div>
+          </div>
+        </div>
+
+        <button type="button" class="regenerate-btn" id="regenerate-btn" style="display:none">🔄 Tentar de novo</button>
+      </div>
+    </div>
+
+    <!-- Recomendados -->
+    <section class="recommended">
+      <h2 class="section-title">Recomendados pra você</h2>
+      <div class="card-row" id="rec-row"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-logo">Fluffy Dreams</div>
+    <nav class="footer-links">
+      <a href="index.html">Loja</a>
+      <a href="meus-pedidos.html">Meus Pedidos</a>
+    </nav>
+    <p class="footer-copy">Copyright &copy; 2026 Fluffy Dreams</p>
+  </footer>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ─────────── Toast (mesmo padrão do script.js) ─────────── */
+      let toastTimer = null;
+      function showToast(msg) {
+        let t = document.querySelector('.toast');
+        if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+        t.textContent = msg; void t.offsetWidth; t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+      }
+
+      /* ─────────── Mode toggle ─────────── */
+      let currentMode = 'image';
+      let stage = 'empty'; // 'empty' | 'loading' | 'result'
+      const modeButtons = document.querySelectorAll('.mode-toggle .filter-btn');
+      const controlsImage = document.getElementById('controls-image');
+      const controlsText = document.getElementById('controls-text');
+      const boxUpload = document.getElementById('box-upload');
+      const boxPlaceholder = document.getElementById('box-placeholder');
+      const boxLoading = document.getElementById('box-loading');
+      const boxResult = document.getElementById('box-result');
+      const regenerateBtn = document.getElementById('regenerate-btn');
+      const generateBtn = document.getElementById('generate-btn');
+
+      function render() {
+        controlsImage.style.display = currentMode === 'image' ? 'block' : 'none';
+        controlsText.style.display = currentMode === 'text' ? 'block' : 'none';
+
+        boxUpload.style.display = (stage === 'empty' && currentMode === 'image') ? 'flex' : 'none';
+        boxPlaceholder.style.display = (stage === 'empty' && currentMode === 'text') ? 'flex' : 'none';
+        boxLoading.style.display = stage === 'loading' ? 'flex' : 'none';
+        boxResult.style.display = stage === 'result' ? 'flex' : 'none';
+
+        generateBtn.style.display = stage === 'result' ? 'none' : 'block';
+        regenerateBtn.style.display = stage === 'result' ? 'block' : 'none';
+      }
+
+      modeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentMode = btn.dataset.mode;
+          modeButtons.forEach(b => {
+            b.classList.toggle('active', b === btn);
+            b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+          });
+          if (stage === 'result') stage = 'empty';
+          render();
+        });
+      });
+
+      regenerateBtn.addEventListener('click', () => {
+        stage = 'empty';
+        render();
+      });
+
+      /* ─────────── Upload de imagem ─────────── */
+      const fileInput = document.getElementById('file-input');
+      const uploadIcon = document.getElementById('upload-icon');
+      const uploadText = document.getElementById('upload-text');
+      const uploadRemove = document.getElementById('upload-remove');
+      let uploadedImageDataUrl = null;
+
+      function setPreview(dataUrl) {
+        uploadedImageDataUrl = dataUrl;
+        const existing = boxUpload.querySelector('img.preview');
+        if (existing) existing.remove();
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.className = 'preview';
+        boxUpload.appendChild(img);
+        uploadIcon.style.display = 'none';
+        uploadText.style.display = 'none';
+        uploadRemove.style.display = 'flex';
+      }
+
+      function clearPreview() {
+        uploadedImageDataUrl = null;
+        const existing = boxUpload.querySelector('img.preview');
+        if (existing) existing.remove();
+        uploadIcon.style.display = '';
+        uploadText.style.display = '';
+        uploadRemove.style.display = 'none';
+        fileInput.value = '';
+      }
+
+      function handleFile(file) {
+        if (!file || !file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = e => setPreview(e.target.result);
+        reader.readAsDataURL(file);
+      }
+
+      boxUpload.addEventListener('click', e => {
+        if (e.target === uploadRemove) return;
+        fileInput.click();
+      });
+
+      fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+      uploadRemove.addEventListener('click', e => {
+        e.stopPropagation();
+        clearPreview();
+      });
+
+      ['dragenter', 'dragover'].forEach(evt => {
+        boxUpload.addEventListener(evt, e => {
+          e.preventDefault();
+          boxUpload.classList.add('dragover');
+        });
+      });
+      ['dragleave', 'drop'].forEach(evt => {
+        boxUpload.addEventListener(evt, e => {
+          e.preventDefault();
+          boxUpload.classList.remove('dragover');
+        });
+      });
+      boxUpload.addEventListener('drop', e => {
+        const file = e.dataTransfer.files && e.dataTransfer.files[0];
+        handleFile(file);
+      });
+
+      async function runGenerate(body) {
+        const res = await fetch('/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Erro ao gerar');
+        return json;
+      }
+
+      /* ─────────── Gerar ─────────── */
+      generateBtn.addEventListener('click', async () => {
+        let body;
+
+        if (currentMode === 'image') {
+          if (!uploadedImageDataUrl) { showToast('Envie uma imagem primeiro'); return; }
+          const caption = document.getElementById('image-caption').value.trim();
+          body = { modo: 'imagem', imagem: uploadedImageDataUrl, legenda: caption };
+        } else {
+          const prompt = document.getElementById('prompt-input').value.trim();
+          if (!prompt) { showToast('Digite uma descrição para sua pelúcia'); return; }
+          body = { modo: 'texto', prompt };
+        }
+
+        stage = 'loading';
+        render();
+        const loadingSteps = document.getElementById('loading-steps');
+        if (loadingSteps) {
+          loadingSteps.innerHTML = body.modo === 'imagem'
+            ? '<span>👁️ IA analisa sua foto</span><span>✍️ IA cria o prompt</span><span>🎨 IA gera o ursinho</span>'
+            : '<span>🎨 IA gera o ursinho</span>';
+        }
+
+        try {
+          const data = await runGenerate(body);
+          document.getElementById('result-img').src = data.url;
+          const descEl = document.getElementById('result-desc');
+          if (data.descricao) {
+            descEl.innerHTML = '<strong>🤖 Descrição da sua foto:</strong><br>' +
+              '<span class="desc-text">' + escapeHtml(data.descricao) + '</span>' +
+              (data.prompt ? '<br><small><em>Prompt usado: ' + escapeHtml(data.prompt) + '</em></small>' : '');
+            descEl.style.display = 'block';
+          } else {
+            descEl.style.display = 'none';
+          }
+          stage = 'result';
+          render();
+        } catch (e) {
+          showToast('Erro: ' + e.message + '. Tente novamente.');
+          stage = 'empty';
+          render();
+        }
+      });
+
+      function escapeHtml(str) {
+        return String(str || '').replace(/[&<>"']/g, function (m) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+        });
+      }
+
+      document.querySelectorAll('.example-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+          document.getElementById('prompt-input').value = this.dataset.prompt;
+        });
+      });
+
+      render();
+
+      /* ─────────── Recomendados ───────────
+         Tenta buscar produtos reais da API; se o backend não estiver
+         disponível ainda, mostra alguns itens de exemplo no mesmo layout. */
+      const ICON_CART = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="20" r="1.4" fill="currentColor" stroke="none"/><circle cx="17" cy="20" r="1.4" fill="currentColor" stroke="none"/><path d="M2.5 3h2l2.2 11.6a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L20 7H5.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const PLACEHOLDER_SVG = '<div class="img-placeholder"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="#ccc"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg></div>';
+
+      function formatPrice(v) {
+        return 'R$' + Number(v).toFixed(2).replace('.', ',');
+      }
+
+      function createRecCard(p) {
+        const card = document.createElement('a');
+        card.className = 'card';
+        card.href = p.id ? ('produto.html?id=' + p.id) : '#';
+        card.innerHTML =
+          '<div class="card-media">' +
+          (p.imagem ? '<img src="' + p.imagem + '" alt="' + p.nome + '" loading="lazy">' : PLACEHOLDER_SVG) +
+          '</div>' +
+          '<div class="card-title">' + p.nome + '</div>' +
+          '<div class="card-footer"><div class="card-price">' + formatPrice(p.preco) + '</div>' +
+          '<button class="cart-btn" type="button">' + ICON_CART + ' CARRINHO</button></div>';
+        card.querySelector('.cart-btn').addEventListener('click', function (e) {
+          e.preventDefault(); e.stopPropagation();
+          showToast(p.nome + ' adicionado!');
+        });
+        return card;
+      }
+
+      async function renderRecommended() {
+        const section = document.querySelector('.recommended');
+        const row = document.getElementById('rec-row');
+        try {
+          const res = await fetch('/produtos');
+          if (!res.ok) throw new Error('sem backend');
+          const produtos = await res.json();
+          if (!produtos.length) throw new Error('vazio');
+          produtos.slice(0, 8).forEach(p => row.appendChild(createRecCard(p)));
+        } catch {
+          // Backend ainda não disponível ou sem produtos: esconde a seção
+          // em vez de mostrar itens repetidos/fake.
+          section.style.display = 'none';
+        }
+      }
+      renderRecommended();
+    })();
+  </script>
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
