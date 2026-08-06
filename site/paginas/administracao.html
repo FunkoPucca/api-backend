@@ -7,11 +7,16 @@
 <meta name="theme-color" content="#6ad8f7" />
 <title>Admin - Fluffy Dreams</title>
 <link rel="stylesheet" href="../estilos/estilos.css" />
+<script>try{if(localStorage.getItem('fluffy_tema')==='escuro'){document.documentElement.setAttribute('data-tema','escuro')}}catch(e){}</script>
 </head>
 <body data-page="admin">
   <header class="site-header">
     <div class="logo"><a href="inicio.html">Fluffy Dreams</a></div>
     <nav class="header-icons">
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Alternar tema claro/escuro">
+    <svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+  </button>
       <a href="carrinho.html" class="icon-btn" aria-label="Carrinho">
         <svg viewBox="0 0 24 24"><path d="M7 4h-2l-1 2v2h2l3.6 7.59-1.35 2.44c-.16.28-.25.61-.25.97 0 1.1.9 2 2 2h12v-2h-11.85c-.13 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.24-5.88c.09-.16.14-.35.14-.53 0-.55-.45-1-1-1h-13.65l-.94-2h-4.13z"/></svg>
         <span class="cart-badge">0</span>

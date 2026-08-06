@@ -733,8 +733,21 @@
     }
   }
 
+  /* ─────────── Tema claro/escuro ─────────── */
+  function initThemeToggle() {
+    var btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var atual = document.documentElement.getAttribute('data-tema') === 'escuro' ? 'escuro' : 'claro';
+      var novo = atual === 'escuro' ? 'claro' : 'escuro';
+      document.documentElement.setAttribute('data-tema', novo);
+      try { localStorage.setItem('fluffy_tema', novo); } catch (e) { /* sem storage */ }
+    });
+  }
+
   /* ─────────── Init ─────────── */
   document.addEventListener('DOMContentLoaded', function () {
+    initThemeToggle();
     updateHeaderAuth();
     updateBadges();
     renderBanner();
