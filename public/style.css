@@ -1570,6 +1570,15 @@ main {
   border-radius: 8px;
   background: var(--white);
 }
+.result-name {
+  width: 100%;
+  text-align: center;
+  font-size: 18px;
+  color: var(--accent);
+}
+.result-name strong {
+  font-family: "Fredoka", cursive;
+}
 .result-desc {
   width: 100%;
   text-align: left;

@@ -113,6 +113,7 @@
           <!-- Resultado (compartilhado) -->
           <div id="box-result" class="box-state box-result" style="display:none">
             <img id="result-img" src="" alt="Pelúcia gerada" />
+            <div id="result-name" class="result-name"></div>
             <div id="result-desc" class="result-desc" style="display:none"></div>
 
             <!-- Negociação de valor -->
@@ -311,6 +312,13 @@
           lastResult = { idGeracao: data.idGeracao, nome: data.nomeSugerido };
           resetNegotiate();
           document.getElementById('result-img').src = data.url;
+          const nameEl = document.getElementById('result-name');
+          if (data.nomeSugerido) {
+            nameEl.innerHTML = '🧸 <strong>' + escapeHtml(data.nomeSugerido) + '</strong>';
+            nameEl.style.display = 'block';
+          } else {
+            nameEl.style.display = 'none';
+          }
           const descEl = document.getElementById('result-desc');
           if (data.descricao) {
             descEl.innerHTML = '<strong>🤖 Descrição da sua foto:</strong><br>' +

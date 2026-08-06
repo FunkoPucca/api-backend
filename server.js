@@ -508,21 +508,37 @@ async function geminiDescreveFoto(dataUri, legenda) {
 
 async function geminiCriaPrompt(conceito, legenda) {
   const texto = [
-    'Com base na ideia abaixo, crie UM ÚNICO prompt curto (máx. 80 palavras, em português) descrevendo UMA PELÚCIA FOFA que represente FIELMENTE essa ideia.',
-    'REGRAS:',
+    'Com base na ideia abaixo, crie UM NOME fofo e curto de produto (2 a 5 palavras, título da pelúcia na loja) e UM ÚNICO prompt curto (máx. 80 palavras, em português) descrevendo UMA PELÚCIA FOFA que represente FIELMENTE essa ideia.',
+    'FORMATO EXATO — responda APENAS com duas linhas:',
+    'NOME: <nome do produto, ex: Ursinho Marrom do Lacinho Azul>',
+    'PROMPT: <o prompt curto da pelúcia>',
+    'REGRAS DO NOME:',
+    '- Nome próprio fofo e único, sem repetir "pelúcia" nem "de pelúcia" (ex: "Raposa Laranja Fofinha", "Capivara da Tranquilidade").',
+    '- Título de loja: começa com letra maiúscula e parece um nome dado à pelúcia.',
+    'REGRAS DO PROMPT:',
     '- Preserve TODOS os detalhes específicos da ideia: espécie/animal, cores exatas, formato, acessórios e expressão, para que cada pelúcia seja ÚNICA e parecida com a referência.',
     '- NUNCA generalize para um ursinho genérico. Se a ideia tem algo específico (ex: raposa laranja, sereia roxa, capivara relaxando), a pelúcia DEVE ser desse algo específico.',
     '- A pelúcia é um brinquedo fofo e infantil: olhos grandes, bochechas, expressão adorável e abraçável.',
     '- PROIBIDO descrever humanos reais, pessoas, corpos, pele, roupas de humano, nudez ou sexualização.',
     '- Se a ideia for uma pessoa, vire-a em um animal de pelúcia fofo inspirado nela, mantendo as características marcantes (cabelo vira juba/orelhas, roupa vira laço etc).',
-    '- Não escreva nada além do prompt.',
     '',
     'Ideia:',
     conceito,
   ];
   if (legenda && legenda.trim()) texto.push('Desejos do usuário: ' + legenda.trim());
-  return geminiCall([{ text: texto.join('\n') }],
-    'Você é um especialista em criar prompts de pelúcias fofas para crianças. Você SEMPRE converte qualquer ideia em um brinquedo de pelúcia fofo, kawaii e infantil, mantendo a originalidade e os detalhes específicos da ideia. Você NUNCA descreve humanos, pessoas ou corpos.');
+  const resposta = await geminiCall([{ text: texto.join('\n') }],
+    'Você é um especialista em criar prompts e nomes de pelúcias fofas para crianças. Você SEMPRE converte qualquer ideia em um brinquedo de pelúcia fofo, kawaii e infantil, mantendo a originalidade e os detalhes específicos da ideia. Você NUNCA descreve humanos, pessoas ou corpos. Responda no formato exato pedido: linha NOME: e linha PROMPT:.');
+
+  let nome = '';
+  let promptFinal = '';
+  for (const linha of String(resposta).split('\n')) {
+    const t = linha.trim();
+    if (/^NOME:/i.test(t)) nome = t.replace(/^NOME:\s*/i, '').trim();
+    else if (/^PROMPT:/i.test(t)) promptFinal = t.replace(/^PROMPT:\s*/i, '').trim();
+    else if (!promptFinal && t) promptFinal = t;
+  }
+  if (!promptFinal) promptFinal = String(resposta).replace(/^NOME:.*/i, '').trim() || conceito;
+  return { nome: nome || null, prompt: promptFinal };
 }
 
 const ESTILO_HOME_PADRAO =
@@ -714,16 +730,17 @@ app.post('/generate', async (req, res) => {
       // Etapa 1 — Visão (Gemini): descreve a foto enviada
       descricaoFoto = await geminiDescreveFoto(imagem, legenda);
 
-      // Etapa 2 — Texto (Gemini): transforma a descrição em prompt de pelúcia
-      promptFinal = await geminiCriaPrompt(descricaoFoto, legenda);
-
-      nomeSugerido = nomeDePrompt(legenda || descricaoFoto);
+      // Etapa 2 — Texto (Gemini): transforma a descrição em prompt e nome de pelúcia
+      const ger2 = await geminiCriaPrompt(descricaoFoto, legenda);
+      promptFinal = ger2.prompt;
+      nomeSugerido = ger2.nome || nomeDePrompt(legenda || descricaoFoto);
     } else {
       // Fluxo por texto: o Gemini converte a ideia do usuário em prompt de pelúcia
       // (sanitiza qualquer conceito, garantindo sempre um brinquedo fofo infantil)
       if (!prompt || !prompt.trim()) return res.status(400).json({ error: 'Digite uma descrição para sua pelúcia' });
-      promptFinal = await geminiCriaPrompt(prompt.trim());
-      nomeSugerido = nomeDePrompt(prompt);
+      const ger = await geminiCriaPrompt(prompt.trim());
+      promptFinal = ger.prompt;
+      nomeSugerido = ger.nome || nomeDePrompt(prompt);
     }
 
     // Etapa 3 — Imagem (Pollinations): gera a pelúcia
