@@ -3,6 +3,10 @@
 
   const API = (window.SITE_CONFIG && window.SITE_CONFIG.API_URL) || '';
 
+  function cssEscape(s) {
+    return (window.CSS && typeof CSS.escape === 'function') ? CSS.escape(s) : String(s).replace(/(["\\])/g, '\\$1');
+  }
+
   /* ─────────── Auth ─────────── */
   function getToken() { return localStorage.getItem('fluffy_token'); }
   function setToken(t) { localStorage.setItem('fluffy_token', t); }
@@ -187,10 +191,13 @@
   async function renderCatalog() {
     const m = document.getElementById('catalog'); if (!m) return;
     readCatalogQuery();
+    const clearParams = new URLSearchParams(window.location.search);
+    clearParams.delete('q'); clearParams.delete('busca');
+    const clearHref = 'index.html' + (clearParams.toString() ? '?' + clearParams.toString() : '');
     m.innerHTML = '<section class="catalog" id="catalogo">' +
       '<h2 class="section-title">Nossas pelúcias</h2>' +
       '<div class="filter-bar" id="filter-bar"><button class="filter-btn active" data-cat="">Todas</button></div>' +
-      (catalogQuery ? '<p class="search-info">Resultados para "' + esc(catalogQuery) + '"</p>' : '') +
+      (catalogQuery ? '<p class="search-info">Resultados para "' + esc(catalogQuery) + '" <a class="clear-search" href="' + clearHref + '">✕ Limpar busca</a></p>' : '') +
       '<div class="product-grid" id="product-grid"><div class="loading-spinner"></div></div></section>';
 
     // Filter buttons (including "Todas")
@@ -198,8 +205,10 @@
       btn.addEventListener('click', () => {
         const cat = btn.dataset.cat || '';
         if (catalogQuery) {
+          // Com busca ativa: "Todas" remove a busca e a categoria (mostra tudo);
+          // categorias filtram dentro da busca.
           const params = new URLSearchParams(window.location.search);
-          if (cat) params.set('categoria', cat); else params.delete('categoria');
+          if (cat) params.set('categoria', cat); else { params.delete('categoria'); params.delete('q'); params.delete('busca'); }
           window.location.href = 'index.html?' + params.toString();
         } else {
           setCatalogState({ cat });
@@ -244,7 +253,7 @@
       const catFromUrl = new URLSearchParams(window.location.search).get('categoria');
       const useCat = cat || catFromUrl || '';
       if (!activeBtn && useCat) {
-        const match = document.querySelector('.filter-btn[data-cat="' + CSS.escape(useCat) + '"]');
+        const match = document.querySelector('.filter-btn[data-cat="' + cssEscape(useCat) + '"]');
         if (match) match.classList.add('active');
       }
       try {

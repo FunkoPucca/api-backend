@@ -1241,6 +1241,19 @@ main {
   margin: 0 0 24px;
 }
 
+.search-info .clear-search {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.search-info .clear-search:hover {
+  text-decoration: underline;
+}
+
 /* ---------- Orders toolbar / action ---------- */
 .orders-toolbar {
   display: flex;
