@@ -6,7 +6,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const pool = require('./db');
+const pool = require('./banco');
 const { autenticar } = require('./middleware');
 
 const app = express();
@@ -16,8 +16,11 @@ const JWT_EXPIRATION_MS = parseInt(process.env.JWT_EXPIRATION_MS || '3600000');
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Site (frontend) servido da raiz: /paginas/inicio.html, /estilos/estilos.css etc.
+app.use(express.static(path.join(__dirname, '..', 'site')));
+// Compatibilidade de URLs das imagens salvas no banco
+app.use('/images', express.static(path.join(__dirname, '..', 'site', 'imagens')));
+app.use('/uploads/geradas', express.static(path.join(__dirname, '..', 'dados', 'pelucias-geradas')));
 
 async function initDB() {
   const client = await pool.connect();
@@ -552,7 +555,7 @@ async function estiloReferenciaHome() {
   // Usa as pelúcias exibidas na home (banner + fotos dos produtos) como referência
   // de estilo para as pelúcias geradas. Calculado 1x e cacheado em disco.
   if (_estiloHomeCache) return _estiloHomeCache;
-  const cachePath = path.join(__dirname, 'uploads', 'estilo-home.txt');
+  const cachePath = path.join(__dirname, '..', 'dados', 'estilo-home.txt');
   try {
     if (fs.existsSync(cachePath)) {
       const t = fs.readFileSync(cachePath, 'utf8').trim();
@@ -566,13 +569,13 @@ async function estiloReferenciaHome() {
     try {
       const r = await pool.query("SELECT imagem FROM produtos WHERE (categoria = 'Personalizada' OR nome ILIKE '%verde%') AND imagem LIKE '/uploads/geradas/%' ORDER BY id DESC LIMIT 1");
       if (r.rows.length && r.rows[0].imagem) {
-        const f = path.join(__dirname, r.rows[0].imagem.replace(/^\/+/, ''));
+        const f = path.join(__dirname, '..', 'dados', 'pelucias-geradas', path.basename(r.rows[0].imagem));
         if (fs.existsSync(f)) {
           refs.push({ mime: 'image/jpeg', data: fs.readFileSync(f).toString('base64') });
         }
       }
     } catch (e) { /* sem banco/imagem não é fatal */ }
-    const dirProdutos = path.join(__dirname, 'public', 'images', 'produtos');
+    const dirProdutos = path.join(__dirname, '..', 'site', 'imagens', 'produtos');
     if (fs.existsSync(dirProdutos)) {
       const imgs = fs.readdirSync(dirProdutos)
         .filter(f => /\.(jpg|jpeg|png)$/i.test(f))
@@ -582,7 +585,7 @@ async function estiloReferenciaHome() {
         refs.push({ mime: /\.png$/i.test(f) ? 'image/png' : 'image/jpeg', data: buf.toString('base64') });
       }
     }
-    const bannerPath = path.join(__dirname, 'public', 'images', 'banner.png');
+    const bannerPath = path.join(__dirname, '..', 'site', 'imagens', 'banner.png');
     if (fs.existsSync(bannerPath)) {
       refs.push({ mime: 'image/png', data: fs.readFileSync(bannerPath).toString('base64') });
     }
@@ -597,7 +600,7 @@ async function estiloReferenciaHome() {
         const t = estilo.trim().slice(0, 300);
         _estiloHomeCache = t;
         try {
-          fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
+          fs.mkdirSync(path.join(__dirname, '..', 'dados'), { recursive: true });
           fs.writeFileSync(cachePath, t);
         } catch (e) { /* cache em disco é opcional */ }
         return t;
@@ -748,7 +751,7 @@ app.post('/generate', async (req, res) => {
 
     // Salva a imagem em disco para poder ir ao carrinho se a negociação for aceita
     const idGeracao = crypto.randomUUID();
-    const dirGeradas = path.join(__dirname, 'uploads', 'geradas');
+    const dirGeradas = path.join(__dirname, '..', 'dados', 'pelucias-geradas');
     fs.mkdirSync(dirGeradas, { recursive: true });
     fs.writeFileSync(path.join(dirGeradas, `${idGeracao}.jpg`), imagemResult.buffer);
 
@@ -778,7 +781,7 @@ app.post('/generate/negociar', autenticar, async (req, res) => {
     const v = Number(valor);
     if (!v || v <= 0) return res.status(400).json({ error: 'Informe um valor válido' });
 
-    const arquivo = path.join(__dirname, 'uploads', 'geradas', `${idGeracao}.jpg`);
+    const arquivo = path.join(__dirname, '..', 'dados', 'pelucias-geradas', `${idGeracao}.jpg`);
     if (!fs.existsSync(arquivo)) return res.status(404).json({ error: 'Imagem gerada não encontrada. Gere novamente.' });
 
     const alvo = alvoNegociacao(idGeracao);

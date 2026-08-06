@@ -193,7 +193,7 @@
     readCatalogQuery();
     const clearParams = new URLSearchParams(window.location.search);
     clearParams.delete('q'); clearParams.delete('busca');
-    const clearHref = 'index.html' + (clearParams.toString() ? '?' + clearParams.toString() : '');
+    const clearHref = 'inicio.html' + (clearParams.toString() ? '?' + clearParams.toString() : '');
     m.innerHTML = '<section class="catalog" id="catalogo">' +
       '<h2 class="section-title">Nossas pelúcias</h2>' +
       '<div class="filter-bar" id="filter-bar"><button class="filter-btn active" data-cat="">Todas</button></div>' +
@@ -209,7 +209,7 @@
           // categorias filtram dentro da busca.
           const params = new URLSearchParams(window.location.search);
           if (cat) params.set('categoria', cat); else { params.delete('categoria'); params.delete('q'); params.delete('busca'); }
-          window.location.href = 'index.html?' + params.toString();
+          window.location.href = 'inicio.html?' + params.toString();
         } else {
           setCatalogState({ cat });
         }
@@ -228,7 +228,7 @@
           if (catalogQuery) {
             const params = new URLSearchParams(window.location.search);
             params.set('categoria', c);
-            window.location.href = 'index.html?' + params.toString();
+            window.location.href = 'inicio.html?' + params.toString();
           } else {
             setCatalogState({ cat: c });
           }
@@ -240,7 +240,7 @@
     function setCatalogState(state) {
       const params = new URLSearchParams(window.location.search);
       if (state.cat) params.set('categoria', state.cat); else params.delete('categoria');
-      window.history.pushState({}, '', 'index.html?' + params.toString());
+      window.history.pushState({}, '', 'inicio.html?' + params.toString());
       readCatalogQuery();
       loadProducts(state.cat, state.cat ? null : document.querySelector('[data-cat=""]'));
     }
@@ -277,7 +277,7 @@
   async function renderProductPage() {
     const c = document.getElementById('product-page-content'); if (!c) return;
     const id = getQueryId();
-    if (!id) { c.innerHTML = '<div class="empty-state"><h2>Produto não encontrado</h2><a class="btn-primary" href="index.html">Voltar</a></div>'; return; }
+    if (!id) { c.innerHTML = '<div class="empty-state"><h2>Produto não encontrado</h2><a class="btn-primary" href="inicio.html">Voltar</a></div>'; return; }
 
     try {
       c.innerHTML = '<div class="loading-spinner"></div>';
@@ -374,7 +374,7 @@
 
       renderRecommended(id);
     } catch {
-      c.innerHTML = '<div class="empty-state"><h2>Produto não encontrado</h2><a class="btn-primary" href="index.html">Voltar</a></div>';
+      c.innerHTML = '<div class="empty-state"><h2>Produto não encontrado</h2><a class="btn-primary" href="inicio.html">Voltar</a></div>';
     }
   }
 
@@ -397,18 +397,18 @@
       c.innerHTML = '<div class="empty-state"><div class="empty-icon">' + ICONS.cart + '</div>' +
         '<h2>Você precisa fazer login</h2>' +
         '<p>Entre na sua conta para ver seu carrinho e finalizar suas compras.</p>' +
-        '<a class="btn-primary" href="login.html">Fazer login</a></div>';
+        '<a class="btn-primary" href="entrar.html">Fazer login</a></div>';
       return;
     }
     async function draw() {
       if (!currentOrderId && !(await ensureOrder())) {
-        c.innerHTML = '<div class="empty-state"><h2>Seu carrinho está vazio</h2><p>Que tal escolher uma pelúcia?</p><a class="btn-primary" href="index.html">Ver produtos</a></div>';
+        c.innerHTML = '<div class="empty-state"><h2>Seu carrinho está vazio</h2><p>Que tal escolher uma pelúcia?</p><a class="btn-primary" href="inicio.html">Ver produtos</a></div>';
         return;
       }
       let cart;
       try { cart = await getCartItems(); } catch { cart = []; }
       if (!cart || cart.length === 0) {
-        c.innerHTML = '<div class="empty-state"><h2>Seu carrinho está vazio</h2><p>Que tal escolher uma pelúcia?</p><a class="btn-primary" href="index.html">Ver produtos</a></div>';
+        c.innerHTML = '<div class="empty-state"><h2>Seu carrinho está vazio</h2><p>Que tal escolher uma pelúcia?</p><a class="btn-primary" href="inicio.html">Ver produtos</a></div>';
         return;
       }
       const enriched = await Promise.all(cart.map(async (item) => {
@@ -593,7 +593,7 @@
       '<div class="field"><label>Senha</label><div class="field-icon"><input type="password" id="auth-senha" placeholder="Sua senha" />' + AUTH_ICONS.lock + '</div></div>' +
       '<button class="btn-primary" id="auth-submit">' + (isLogin ? 'Entrar' : 'Cadastrar') + '</button>' +
       '<p class="auth-link">' +
-      (isLogin ? 'Não tem conta? <a href="register.html">Cadastre-se</a>' : 'Já tem conta? <a href="login.html">Entrar</a>') +
+      (isLogin ? 'Não tem conta? <a href="cadastro.html">Cadastre-se</a>' : 'Já tem conta? <a href="entrar.html">Entrar</a>') +
       '</p></div>';
     document.getElementById('auth-submit').addEventListener('click', async () => {
       const email = document.getElementById('auth-email').value.trim();
@@ -605,10 +605,10 @@
           setToken(data.token);
           const payload = JSON.parse(atob(data.token.split('.')[1]));
           setUser({ id: payload.id, nome: payload.nome, email: payload.email });
-          window.location.href = 'index.html';
+          window.location.href = 'inicio.html';
         } else {
           showToast('Conta criada! Faça login.');
-          setTimeout(() => window.location.href = 'login.html', 1200);
+          setTimeout(() => window.location.href = 'entrar.html', 1200);
         }
       } catch (e) { showToast(e.message); }
     });
@@ -629,7 +629,7 @@
       c.innerHTML = '<div class="empty-state"><div class="empty-icon">' + ICONS.cart + '</div>' +
         '<h2>Você precisa fazer login</h2>' +
         '<p>Entre na sua conta para ver seus pedidos.</p>' +
-        '<a class="btn-primary" href="login.html">Fazer login</a></div>';
+        '<a class="btn-primary" href="entrar.html">Fazer login</a></div>';
       return;
     }
     try {
@@ -639,7 +639,7 @@
         '<button class="btn-primary btn-sm" id="demo-finalizado-btn">Gerar pedido finalizado (p/ marcar como entregue)</button>' +
         '<button class="btn-primary btn-sm" id="demo-orders-btn">Gerar pedidos entregues</button></div>';
       if (!orders || orders.length === 0) {
-        c.innerHTML = '<div class="empty-state"><h2>Nenhum pedido ainda</h2><p>Que tal fazer sua primeira compra?</p><a class="btn-primary" href="index.html">Ver produtos</a></div>' + html;
+        c.innerHTML = '<div class="empty-state"><h2>Nenhum pedido ainda</h2><p>Que tal fazer sua primeira compra?</p><a class="btn-primary" href="inicio.html">Ver produtos</a></div>' + html;
         bindDemoBtn();
         return;
       }

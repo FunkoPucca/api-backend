@@ -2,10 +2,10 @@
   "name": "fluffy-dreams",
   "version": "1.0.0",
   "description": "Fluffy Dreams - E-commerce de pelúcias com gerador de IA",
-  "main": "server.js",
+  "main": "api/servidor.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node api/servidor.js",
+    "dev": "node --watch api/servidor.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
