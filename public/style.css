@@ -739,23 +739,53 @@ main {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 40px 20px;
+  padding: 60px 20px;
   flex: 1;
+  min-height: calc(100vh - 240px);
+  background: radial-gradient(ellipse at top, var(--blue-soft) 0%, #ffffff 65%);
 }
 
 .auth-box {
-  background: var(--card-bg);
-  border-radius: 16px;
-  padding: 40px;
+  position: relative;
+  background: var(--white);
+  border-radius: 24px;
+  padding: 44px 40px 40px;
   width: 100%;
   max-width: 400px;
+  box-shadow: var(--shadow-md);
+}
+
+.auth-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--blue-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+}
+
+.auth-icon svg {
+  width: 30px;
+  height: 30px;
 }
 
 .auth-box h1 {
+  font-family: "Fredoka", cursive;
   font-size: 28px;
-  font-weight: 800;
-  margin: 0 0 24px;
+  font-weight: 600;
+  margin: 0 0 6px;
   text-align: center;
+  color: var(--text-dark);
+}
+
+.auth-subtitle {
+  text-align: center;
+  color: var(--text-gray);
+  font-size: 14px;
+  margin: 0 0 28px;
 }
 
 .field {
@@ -770,29 +800,57 @@ main {
   color: var(--text-gray);
 }
 
+.field-icon {
+  position: relative;
+}
+
+.field-icon svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: #b3b3b3;
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.field-icon:focus-within svg {
+  color: var(--accent);
+}
+
 .field input, .field textarea {
   width: 100%;
-  padding: 12px 16px;
-  border: 1px solid var(--border-gray);
-  border-radius: 10px;
+  padding: 13px 16px;
+  border: 1.5px solid var(--border-gray);
+  border-radius: 12px;
   font-size: 15px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
+  background: var(--white);
+}
+
+.field-icon input {
+  padding-left: 44px;
 }
 
 .field input:focus, .field textarea:focus {
-  border-color: var(--blue);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--blue-soft);
 }
 
 .auth-box .btn-primary {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 10px;
+  font-size: 16px;
+  padding: 15px 28px;
 }
 
 .auth-link {
   text-align: center;
-  margin-top: 18px;
+  margin-top: 22px;
   font-size: 14px;
   color: var(--text-gray);
 }
@@ -800,6 +858,10 @@ main {
 .auth-link a {
   color: var(--accent);
   font-weight: 700;
+}
+
+.auth-link a:hover {
+  text-decoration: underline;
 }
 
 /* ---------- Generate page ---------- */

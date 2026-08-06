@@ -564,16 +564,24 @@
   }
 
   /* ─────────── Auth Forms ─────────── */
+  const AUTH_ICONS = {
+    person: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.2-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-2.8-3.6-5-8-5z"/></svg>',
+    email: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4" stroke-linecap="round"/></svg>',
+  };
+
   function renderAuthForm(type) {
     const c = document.getElementById('auth-form'); if (!c) return;
     const isLogin = type === 'login';
     document.title = (isLogin ? 'Login' : 'Cadastro') + ' - Fluffy Dreams';
     c.innerHTML =
       '<div class="auth-box">' +
-      '<h1>' + (isLogin ? 'Entrar' : 'Criar Conta') + '</h1>' +
-      (isLogin ? '' : '<div class="field"><label>Nome</label><input type="text" id="auth-nome" placeholder="Seu nome" /></div>') +
-      '<div class="field"><label>Email</label><input type="email" id="auth-email" placeholder="seu@email.com" /></div>' +
-      '<div class="field"><label>Senha</label><input type="password" id="auth-senha" placeholder="Sua senha" /></div>' +
+      '<div class="auth-icon">' + (isLogin ? AUTH_ICONS.lock : AUTH_ICONS.person) + '</div>' +
+      '<h1>' + (isLogin ? 'Bem-vindo de volta' : 'Criar conta') + '</h1>' +
+      '<p class="auth-subtitle">' + (isLogin ? 'Que bom te ver de novo! Entre pra continuar.' : 'Leva menos de um minuto pra começar.') + '</p>' +
+      (isLogin ? '' : '<div class="field"><label>Nome</label><div class="field-icon"><input type="text" id="auth-nome" placeholder="Seu nome" />' + AUTH_ICONS.person + '</div></div>') +
+      '<div class="field"><label>Email</label><div class="field-icon"><input type="email" id="auth-email" placeholder="seu@email.com" />' + AUTH_ICONS.email + '</div></div>' +
+      '<div class="field"><label>Senha</label><div class="field-icon"><input type="password" id="auth-senha" placeholder="Sua senha" />' + AUTH_ICONS.lock + '</div></div>' +
       '<button class="btn-primary" id="auth-submit">' + (isLogin ? 'Entrar' : 'Cadastrar') + '</button>' +
       '<p class="auth-link">' +
       (isLogin ? 'Não tem conta? <a href="register.html">Cadastre-se</a>' : 'Já tem conta? <a href="login.html">Entrar</a>') +

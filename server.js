@@ -597,7 +597,9 @@ async function estiloReferenciaHome() {
 async function geraImagemPollinations(prompt) {
   // A aparência da pelúcia é guiada PELO PROMPT GERADO PELO GEMINI (específico).
   // Aqui garantimos que é uma pelúcia (sem humanos) fofa e detalhada, sempre de
-  // frente, usando as pelúcias da home como referência de estilo.
+  // frente, usando as pelúcias da home como referência de estilo. A instrução
+  // "NÃO é humano" fica no INÍCIO do prompt (o flux dá mais peso ao começo) e
+  // ainda fazemos verificação visual com o Gemini: se aparecer humano, regenera.
   const conceito = (prompt || '').trim();
   const vibes = [
     'kawaii chibi style',
@@ -608,41 +610,74 @@ async function geraImagemPollinations(prompt) {
   ];
   const vibe = vibes[Math.floor(Math.random() * vibes.length)];
   const estiloRef = await estiloReferenciaHome();
-  const guard = `super cute soft plush stuffed toy, ${vibe}, fluffy plush fabric, children's plush toy, studio product photo, high quality. FRONT VIEW, FORWARD FACING: the plushie faces the camera directly, looking straight ahead, full adorable face clearly visible, big shiny kawaii eyes looking forward, centered composition, never from behind, never sideways, never back view. HIGHLY DETAILED and polished: intricate embroidery, soft rich fur texture, cute stitched details, premium handcrafted children's toy. STRICTLY a plush toy: no real humans, no people, no body, no skin, no nude. Style reference from the store's plushies: ${estiloRef}`;
+  const naoHumano = 'PLUSH STUFFED TOY ONLY - THIS IS A CHILDREN\'S PLUSH TOY, NOT A HUMAN, NOT A REAL PERSON, NOT A PHOTO OF A PERSON. No humans, no people, no woman, no man, no person, no human face, no skin, no body, no nude.';
+  const guard = `${naoHumano} super cute soft plush stuffed toy, ${vibe}, fluffy plush fabric, children's plush toy, studio product photo, high quality. FRONT VIEW, FORWARD FACING: the plushie faces the camera directly, looking straight ahead, full adorable plush face clearly visible, big shiny kawaii button eyes looking forward, centered composition, never from behind, never sideways, never back view. HIGHLY DETAILED and polished: intricate embroidery, soft rich fur texture, cute stitched details, premium handcrafted children's toy. STRICTLY a plush toy made of fabric and stuffing: no real humans, no people, no body, no skin, no nude. Style reference from the store's plushies: ${estiloRef}`;
   const finalPrompt = conceito
-    ? `${conceito}. ${guard}`
+    ? `${naoHumano} ${conceito}. ${guard}`
     : `cute teddy bear plush toy. ${guard}`;
-  const seed = Math.floor(Math.random() * 100000);
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?model=flux&width=1024&height=1024&seed=${seed}&safe=true&negative=human,woman,man,person,baby,people,face`;
+  const negative = 'human,woman,man,person,people,baby,face,skin,body,portrait,nude';
 
-  // A Pollinations às vezes responde 503/5xx de forma transitória:
-  // tenta até 4 vezes com espera crescente antes de desistir.
-  let response = null;
-  let ultimoStatus = null;
+  let ultimoErro = null;
   for (let tentativa = 0; tentativa < 4; tentativa++) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
-    try {
-      response = await fetch(url, { signal: controller.signal });
-    } catch (e) {
-      clearTimeout(timeout);
-      ultimoStatus = 'network: ' + (e?.message || e);
-      if (tentativa < 3) { await new Promise(r => setTimeout(r, 2000 * (tentativa + 1))); continue; }
-      throw new Error('Falha ao gerar imagem: ' + (e?.message || e));
-    }
-    clearTimeout(timeout);
-    if (response.ok) break;
-    ultimoStatus = response.status;
-    if (tentativa < 3) { await new Promise(r => setTimeout(r, 2000 * (tentativa + 1))); }
-  }
+    const seed = Math.floor(Math.random() * 100000);
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?model=flux&width=1024&height=1024&seed=${seed}&safe=true&negative=${encodeURIComponent(negative)}`;
 
-  if (!response || !response.ok) throw new Error(`API de imagem retornou ${ultimoStatus} após tentativas`);
-  const buffer = Buffer.from(await response.arrayBuffer());
-  return {
-    url: `data:image/jpeg;base64,${buffer.toString('base64')}`,
-    tamanho: buffer.length,
-    buffer,
-  };
+    // A Pollinations às vezes responde 503/5xx de forma transitória:
+    // tenta até 3 vezes com espera crescente antes de desistir.
+    let response = null;
+    let ultimoStatus = null;
+    for (let httpTry = 0; httpTry < 3; httpTry++) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45000);
+      try {
+        response = await fetch(url, { signal: controller.signal });
+      } catch (e) {
+        clearTimeout(timeout);
+        ultimoStatus = 'network: ' + (e?.message || e);
+        if (httpTry < 2) { await new Promise(r => setTimeout(r, 2000 * (httpTry + 1))); continue; }
+        break;
+      }
+      clearTimeout(timeout);
+      if (response.ok) break;
+      ultimoStatus = response.status;
+      if (httpTry < 2) { await new Promise(r => setTimeout(r, 2000 * (httpTry + 1))); }
+    }
+
+    if (!response || !response.ok) { ultimoErro = `API de imagem retornou ${ultimoStatus} após tentativas`; continue; }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const resultado = {
+      url: `data:image/jpeg;base64,${buffer.toString('base64')}`,
+      tamanho: buffer.length,
+      buffer,
+    };
+
+    // Verificação visual: a imagem tem que ser UMA PELÚCIA (sem humanos).
+    if (await geminiVerificaPelucia(resultado.url)) return resultado;
+
+    ultimoErro = 'Imagem gerada não era uma pelúcia (continha humano/pessoa)';
+    console.warn('Regenerando imagem (tinha humano) — tentativa ' + (tentativa + 1));
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  throw new Error(ultimoErro || 'Não foi possível gerar uma imagem de pelúcia');
+}
+
+// Verifica com o Gemini (visão) se a imagem gerada é exclusivamente uma pelúcia.
+// Se a API de visão estiver indisponível/cota zerada, assume que está ok para
+// não bloquear a geração (retorna true).
+async function geminiVerificaPelucia(dataUri) {
+  try {
+    const base64 = dataUri.includes(',') ? dataUri.split(',')[1] : dataUri;
+    const parts = [
+      { text: 'Responda APENAS com SIM ou NÃO. Esta imagem mostra exclusivamente um bicho de pelúcia / brinquedo de pano (plush toy, stuffed animal)? Se aparecer QUALQUER pessoa, humano, rosto humano real, mão, pele ou corpo de gente, responda NÃO.' },
+      { inline_data: { mime_type: 'image/jpeg', data: base64 } },
+    ];
+    const r = await geminiCall(parts, 'Você é um moderador de conteúdo. Responda apenas SIM ou NÃO.');
+    return /^sim|^s$/i.test((r || '').trim());
+  } catch (e) {
+    console.error('Verificação de pelúcia indisponível (segue sem verificar):', e?.message || e);
+    return true;
+  }
 }
 
 function nomeDePrompt(texto) {
